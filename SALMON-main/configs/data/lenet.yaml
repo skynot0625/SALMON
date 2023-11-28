@@ -1,0 +1,6 @@
+_target_: src.data.cifar10_datamodule.CIFAR10DataModule
+data_dir: ${paths.data_dir}  # 데이터셋이 저장될 경로
+batch_size: 128  # 배치 크기, 분산 학습 환경에 맞게 조정 가능
+train_val_test_split: [45_000, 5_000, 10_000]  # 학습, 검증, 테스트 데이터셋 분할
+num_workers: 4  # 데이터 로딩에 사용할 워커 수
+pin_memory: True  # 학습 성능 향상을 위해 메모리 고정 사용
