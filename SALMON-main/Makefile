@@ -28,3 +28,32 @@ test-full: ## Run all tests
 
 train: ## Train the model
 	python src/train.py
+
+# Existing SALMON-main Makefile commands
+...
+
+# Environment variable for MKL
+MKLROOT ?= /path/to/mkl  # 필요에 따라 MKL의 경로를 설정하세요
+
+# Add aihwkit build commands
+.PHONY: build_aihwkit build_aihwkit_mkl build_aihwkit_cuda
+
+build_aihwkit:
+	python setup.py build_ext -j8 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE --inplace ${flags}
+
+build_aihwkit_mkl:
+	make build_aihwkit flags="-DRPU_BLAS=MKL -DINTEL_MKL_DIR=${MKLROOT} ${flags}"
+
+build_aihwkit_cuda:
+	make build_aihwkit_mkl flags="-DUSE_CUDA=ON ${flags}"
+
+# Clean command for aihwkit
+clean_aihwkit:
+	python setup.py clean
+	rm -rf _skbuild
+	rm -f src/aihwkit/simulator/rpu_base.*.so
+
+# You can also add additional commands related to aihwkit if necessary
+...
+
+# End of Makefile
