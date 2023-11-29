@@ -22,16 +22,3 @@ pre-commit      # hooks for applying linters on commit
 rich            # beautiful text formatting in terminal
 pytest          # tests
 # sh            # for running bash commands in some tests (linux/macos only)
-
-# Combined dependencies for SALMON-main and aihwkit
-cmake>=3.18
-scikit-build>=0.11.1
-pybind11>=2.6.2
-torch>=1.9
-torchvision  # Version might be adjusted based on SALMON-main's requirements
-scipy
-requests>=2.25,<3
-numpy>=1.22
-protobuf>=4.21.6
-matplotlib>=3.0  # From aihwkit's examples requirements
-# Add any additional dependencies from SALMON-main here
