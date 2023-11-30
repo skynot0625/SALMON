@@ -9,7 +9,7 @@ setup(
     url="https://github.com/IBM/aihwkit",
     install_requires=[
         'torch>=1.9', 'torchvision', 'scipy', 'requests>=2.25,<3', 'numpy>=1.22',
-        'protobuf>=4.21.6', 'lightning', 'hydra-core==1.1.0', 'omegaconf==2.1.0',
+        'protobuf>=4.21.6', 'lightning', 'hydra-core==1.3.2', 'omegaconf==2.1.0',
         'cmake>=3.18', 'scikit-build>=0.11.1', 'pybind11>=2.6.2',
         'matplotlib>=3.0'  # visualization 의존성 포함
     ],
