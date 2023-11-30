@@ -1,0 +1,22 @@
+_target_: src.models.analog_lenet_module.AnalogLeNetLitModule  # 변경된 모듈 경로
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+net:
+  _target_: src.models.components.analog_lenet.AnalogLeNet
+  rpu_config: InferenceRPUConfig
+  # 필요한 경우 AnalogLeNet 생성자에 추가 매개변수 추가
+
+# PyTorch 2.0을 사용하여 더 빠른 훈련을 위한 모델 컴파일
+compile: true
