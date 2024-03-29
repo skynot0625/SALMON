@@ -523,8 +523,8 @@ class IntegratedResNet(nn.Module):
         super(IntegratedResNet, self).__init__()
         # ResNetFeatures와 ResNetClassifier를 생성합니다.
         # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.
-        self.features = create_resnet_features(architecture=architecture, rpu_config=rpu_config)
-        
+        self.features = create_resnet_features(architecture=architecture)
+        self.features = convert_to_analog(self.features, rpu_config=rpu_config)
         # 인풋 피처의 크기를 정확히 계산하는 것이 중요합니다. 여기서는 예시로 512 * block.expansion을 사용합니다.
         # 실제 사용 시, ResNetFeatures의 마지막 출력 크기를 기반으로 설정해야 합니다.
         block_type = BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck
