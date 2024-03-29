@@ -1,0 +1,358 @@
+program: src/train.py
+method: bayes
+metric:
+  name: val_acc_0
+  goal: mini
+parameters:
+  data._target_:
+    distribution: categorical
+    values:
+      - src.data.cifar10_datamodule.CIFAR10DataModule
+  data.data_dir:
+    distribution: categorical
+    values:
+      - ${paths.data_dir}
+  data.batch_size:
+    distribution: int_uniform
+    min: 16
+    max: 128
+  data.pin_memory:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  data.num_workers:
+    distribution: int_uniform
+    min: 0
+    max: 8
+  seed:
+    distribution: int_uniform
+    min: 6173
+    max: 24690
+  model.net._target_:
+    distribution: categorical
+    values:
+      - src.models.components.salmon.IntegratedResNet
+  model.compile:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  model._target_:
+    distribution: categorical
+    values:
+      - src.models.exp2_resnet_SD_digit.SalmonLitModule
+  model.optimizer.lr:
+    distribution: uniform
+    min: 0.001
+    max: 0.1
+  model.optimizer._target_:
+    distribution: categorical
+    values:
+      - torch.optim.Adam
+  model.optimizer._partial_:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  model.scheduler.mode:
+    distribution: categorical
+    values:
+      - min
+  model.scheduler.factor:
+    distribution: uniform
+    min: 0.05
+    max: 0.2
+  model.scheduler._target_:
+    distribution: categorical
+    values:
+      - torch.optim.lr_scheduler.StepLR
+  model.scheduler.patience:
+    distribution: int_uniform
+    min: 5
+    max: 100
+  model.scheduler._partial_:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  extras.enforce_tags:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  extras.print_config:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  extras.ignore_warnings:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  trainer.devices:
+    distribution: int_uniform
+    min: 1
+    max: 2
+  trainer._target_:
+    distribution: categorical
+    values:
+      - lightning.pytorch.trainer.Trainer
+  trainer.max_epochs:
+    distribution: int_uniform
+    min: 5
+    max: 300
+  trainer.min_epochs:
+    distribution: int_uniform
+    min: 5
+    max: 20
+  trainer.accelerator:
+    distribution: categorical
+    values:
+      - gpu
+  trainer.deterministic:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  trainer.default_root_dir:
+    distribution: categorical
+    values:
+      - ${paths.output_dir}
+  trainer.gradient_clip_val:
+    distribution: uniform
+    min: 0.25
+    max: 1
+  trainer.check_val_every_n_epoch:
+    distribution: int_uniform
+    min: 1
+    max: 2
+  callbacks.model_summary._target_:
+    distribution: categorical
+    values:
+      - lightning.pytorch.callbacks.RichModelSummary
+  callbacks.model_summary.max_depth:
+    distribution: int_uniform
+    min: -2
+    max: 0
+  callbacks.early_stopping.mode:
+    distribution: categorical
+    values:
+      - max
+  callbacks.early_stopping.strict:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.early_stopping.monitor:
+    distribution: categorical
+    values:
+      - val/acc
+  callbacks.early_stopping.verbose:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.early_stopping._target_:
+    distribution: categorical
+    values:
+      - lightning.pytorch.callbacks.EarlyStopping
+  callbacks.early_stopping.patience:
+    distribution: int_uniform
+    min: 50
+    max: 200
+  callbacks.early_stopping.check_finite:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.model_checkpoint.mode:
+    distribution: categorical
+    values:
+      - max
+  callbacks.model_checkpoint.dirpath:
+    distribution: categorical
+    values:
+      - ${paths.output_dir}/checkpoints
+  callbacks.model_checkpoint.monitor:
+    distribution: categorical
+    values:
+      - val/acc
+  callbacks.model_checkpoint.verbose:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.model_checkpoint._target_:
+    distribution: categorical
+    values:
+      - lightning.pytorch.callbacks.ModelCheckpoint
+  callbacks.model_checkpoint.filename:
+    distribution: categorical
+    values:
+      - epoch_{epoch:03d}
+  callbacks.model_checkpoint.save_last:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.model_checkpoint.save_top_k:
+    distribution: int_uniform
+    min: 1
+    max: 2
+  callbacks.model_checkpoint.save_weights_only:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.model_checkpoint.auto_insert_metric_name:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  callbacks.rich_progress_bar._target_:
+    distribution: categorical
+    values:
+      - lightning.pytorch.callbacks.RichProgressBar
+  task_name:
+    distribution: categorical
+    values:
+      - train
+  model/params/total:
+    distribution: int_uniform
+    min: 75749
+    max: 22347924
+  model/params/trainable:
+    distribution: int_uniform
+    min: 75749
+    max: 22347924
+  data_dir:
+    distribution: categorical
+    values:
+      - /root/SALMON/data/
+  batch_size:
+    distribution: int_uniform
+    min: 16
+    max: 128
+  pin_memory:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  num_workers:
+    distribution: int_uniform
+    min: 2
+    max: 8
+  model.net.num_classes:
+    distribution: int_uniform
+    min: 5
+    max: 20
+  model.batch_size:
+    distribution: int_uniform
+    min: 16
+    max: 64
+  model.num_workers:
+    distribution: int_uniform
+    min: 2
+    max: 8
+  compile:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  model.scheduler.gamma:
+    distribution: uniform
+    min: 0.05
+    max: 0.2
+  model.scheduler.step_size:
+    distribution: int_uniform
+    min: 15
+    max: 60
+  model.integrated_resnet._target_:
+    distribution: categorical
+    values:
+      - src.models.components.salmon.IntegratedResNet
+  model.integrated_resnet.num_classes:
+    distribution: int_uniform
+    min: 5
+    max: 20
+  model.integrated_resnet.architecture:
+    distribution: categorical
+    values:
+      - resnet10
+  alpha:
+    distribution: uniform
+    min: 0.15
+    max: 0.6
+  block:
+    distribution: categorical
+    values:
+      - BasicBlock
+  epoch:
+    distribution: int_uniform
+    min: 150
+    max: 600
+  model:
+    distribution: categorical
+    values:
+      - resnet10
+  p_max:
+    distribution: int_uniform
+    min: 500
+    max: 2000
+  dataset:
+    distribution: categorical
+    values:
+      - cifar10
+  init_lr:
+    distribution: uniform
+    min: 0.05
+    max: 0.2
+  N_CLASSES:
+    distribution: int_uniform
+    min: 5
+    max: 20
+  batchsize:
+    distribution: int_uniform
+    min: 64
+    max: 256
+  autoaugment:
+    distribution: categorical
+    values:
+      - "true"
+      - "false"
+  temperature:
+    distribution: uniform
+    min: 0.01
+    max: 100
+  dataset_path:
+    distribution: categorical
+    values:
+      - data
+  loss_coefficient:
+    distribution: uniform
+    min: 0.01
+    max: 1.0
+  feature_loss_coefficient:
+    distribution: uniform
+    min: 0.01
+    max: 1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

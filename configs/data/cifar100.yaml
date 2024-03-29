@@ -1,0 +1,6 @@
+_target_: src.data.cifar100_datamodule.Cifar100DataModule
+data_dir: ${paths.data_dir}  # Path where the dataset will be stored
+batch_size: 128  # Batch size, adjustable for distributed training environment
+train_val_test_split: [45_000, 5_000, 10_000]  # Split for training, validation, and test datasets
+num_workers: 4  # Number of workers for data loading
+pin_memory: True  # Use pinned memory for improved training performance

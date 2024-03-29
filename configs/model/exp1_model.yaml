@@ -1,0 +1,32 @@
+_target_: src.models.exp1_resnet_backbone.SalmonLitModule
+
+integrated_resnet:
+  _target_: src.models.components.salmon.IntegratedResNet
+  architecture: "resnet10"
+  num_classes: 10
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0
+
+# Scheduler settings
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 300 # 여기서 T_max는 한 주기의 길이(epoch 수)를 의미합니다.
+  eta_min: 0.0 # 이 값은 주기의 최저점에서의 학습률을 의미합니다. 필요에 따라 조정하세요.
+
+compile: false
+
+# Additional hyperparameters
+model: "resnet10"
+dataset: "cifar10"
+epoch: 300
+dataset_path: "data"
+autoaugment: False
+batchsize: 128
+N_CLASSES: 10
+
+

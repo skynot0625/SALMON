@@ -1,0 +1,160 @@
+wandb_version: 1
+
+N_CLASSES:
+  value: 7
+alpha:
+  value: 0.2262124466738662
+autoaugment:
+  value: 'false'
+batch_size:
+  value: 25
+batchsize:
+  value: 127
+block:
+  value: BasicBlock
+callbacks.early_stopping._target_:
+  value: lightning.pytorch.callbacks.EarlyStopping
+callbacks.early_stopping.check_finite:
+  value: 'false'
+callbacks.early_stopping.mode:
+  value: max
+callbacks.early_stopping.monitor:
+  value: val/acc
+callbacks.early_stopping.patience:
+  value: 138
+callbacks.early_stopping.strict:
+  value: 'false'
+callbacks.early_stopping.verbose:
+  value: 'true'
+callbacks.model_checkpoint._target_:
+  value: lightning.pytorch.callbacks.ModelCheckpoint
+callbacks.model_checkpoint.auto_insert_metric_name:
+  value: 'false'
+callbacks.model_checkpoint.dirpath:
+  value: ${paths.output_dir}/checkpoints
+callbacks.model_checkpoint.filename:
+  value: epoch_{epoch:03d}
+callbacks.model_checkpoint.mode:
+  value: max
+callbacks.model_checkpoint.monitor:
+  value: val/acc
+callbacks.model_checkpoint.save_last:
+  value: 'false'
+callbacks.model_checkpoint.save_top_k:
+  value: 1
+callbacks.model_checkpoint.save_weights_only:
+  value: 'false'
+callbacks.model_checkpoint.verbose:
+  value: 'false'
+callbacks.model_summary._target_:
+  value: lightning.pytorch.callbacks.RichModelSummary
+callbacks.model_summary.max_depth:
+  value: -2
+callbacks.rich_progress_bar._target_:
+  value: lightning.pytorch.callbacks.RichProgressBar
+compile:
+  value: 'true'
+data._target_:
+  value: src.data.cifar10_datamodule.CIFAR10DataModule
+data.batch_size:
+  value: 57
+data.data_dir:
+  value: ${paths.data_dir}
+data.num_workers:
+  value: 0
+data.pin_memory:
+  value: 'true'
+data_dir:
+  value: /root/SALMON/data/
+dataset:
+  value: cifar10
+dataset_path:
+  value: data
+epoch:
+  value: 207
+extras.enforce_tags:
+  value: 'true'
+extras.ignore_warnings:
+  value: 'false'
+extras.print_config:
+  value: 'false'
+feature_loss_coefficient:
+  value: 0.1441275126470197
+init_lr:
+  value: 0.17719566005660792
+loss_coefficient:
+  value: 0.036580488646398825
+model:
+  value: resnet10
+model._target_:
+  value: src.models.exp2_resnet_SD_digit.SalmonLitModule
+model.batch_size:
+  value: 52
+model.compile:
+  value: 'false'
+model.integrated_resnet._target_:
+  value: src.models.components.salmon.IntegratedResNet
+model.integrated_resnet.architecture:
+  value: resnet10
+model.integrated_resnet.num_classes:
+  value: 6
+model.net._target_:
+  value: src.models.components.salmon.IntegratedResNet
+model.net.num_classes:
+  value: 17
+model.num_workers:
+  value: 3
+model.optimizer._partial_:
+  value: 'false'
+model.optimizer._target_:
+  value: torch.optim.Adam
+model.optimizer.lr:
+  value: 0.05691458259746572
+model.scheduler._partial_:
+  value: 'false'
+model.scheduler._target_:
+  value: torch.optim.lr_scheduler.StepLR
+model.scheduler.factor:
+  value: 0.09792839114967988
+model.scheduler.gamma:
+  value: 0.12122692255083328
+model.scheduler.mode:
+  value: min
+model.scheduler.patience:
+  value: 19
+model.scheduler.step_size:
+  value: 40
+model/params/total:
+  value: 19333558
+model/params/trainable:
+  value: 16959549
+num_workers:
+  value: 2
+p_max:
+  value: 1902
+pin_memory:
+  value: 'false'
+seed:
+  value: 10796
+task_name:
+  value: train
+temperature:
+  value: 58.3301902605549
+trainer._target_:
+  value: lightning.pytorch.trainer.Trainer
+trainer.accelerator:
+  value: gpu
+trainer.check_val_every_n_epoch:
+  value: 1
+trainer.default_root_dir:
+  value: ${paths.output_dir}
+trainer.deterministic:
+  value: 'false'
+trainer.devices:
+  value: 1
+trainer.gradient_clip_val:
+  value: 0.9835052374894916
+trainer.max_epochs:
+  value: 175
+trainer.min_epochs:
+  value: 6

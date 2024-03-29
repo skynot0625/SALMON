@@ -1,0 +1,40 @@
+_target_: src.models.exp2_module.SalmonLitModule
+
+integrated_resnet:
+  _target_: src.models.components.exp2_model.IntegratedResNet
+  architecture: "resnet18"
+  num_classes: 10
+  rpu_config:
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
+    device:
+      _target_: aihwkit.simulator.configs.devices.IdealDevice
+
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+  eps: 1.0e-08
+  amsgrad: false
+
+# Scheduler settings
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 300 # 여기서 T_max는 한 주기의 길이(epoch 수)를 의미합니다.
+  eta_min: 0.00437 # 50epoch일때 학습률
+
+compile: false
+
+# Additional hyperparameters
+model: "resnet18"
+dataset: "cifar10"
+epoch: 300
+dataset_path: "data"
+autoaugment: False
+batchsize: 128
+N_CLASSES: 10
+opt_config : "AnalogAdam"
+sch_config : "CosineAnealing"
+
+
