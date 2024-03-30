@@ -1,4 +1,4 @@
-_target_: src.models.exp6_1_module.SalmonLitModule
+_target_: src.models.exp6_2_module.SalmonLitModule
 
 # Define the IntegratedResNet configuration
 integrated_resnet:
