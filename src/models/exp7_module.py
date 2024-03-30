@@ -60,7 +60,7 @@ class SalmonLitModule(LightningModule):
 
         # Optimizer settings (scheduler settings could be added similarly)
         self.optimizer_config = optimizer
-
+        self.optimizer_config = scheduler
         # Initialize metrics
         self.criterion = torch.nn.CrossEntropyLoss()
         self.train_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
@@ -136,12 +136,12 @@ class SalmonLitModule(LightningModule):
             
     def configure_optimizers(self):
         # AnalogSGD로 최적화기 설정 변경
-        optimizer = AnalogSGD(self.backbone.parameters(), lr=self.hparams.optimizer['lr'],
+        optimizer = AnalogSGD(self.model.parameters(), lr=self.hparams.optimizer['lr'],
                             weight_decay=self.hparams.optimizer['weight_decay'],
                             momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
                             dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
                             nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.backbone)
+        optimizer.regroup_param_groups(self.model)
         
                 # functools.partial 객체에서 인자를 추출하여 스케줄러를 생성
         if isinstance(self.hparams.scheduler, functools.partial):
