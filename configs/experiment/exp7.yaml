@@ -12,7 +12,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet18","lr001","AnalogSGD","off-schedule","IdealPresetDevice","FC-Digit"]
+tags: ["cifar10", "Resnet18","lr001","AnalogSGD","off-schedule","IdealPresetDevice","FC-Digit","Lr-step"]
 
 seed: 12345
 

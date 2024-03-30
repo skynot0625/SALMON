@@ -46,7 +46,8 @@ class SalmonLitModule(LightningModule):
         opt_config : str,
         sch_config : str,
         sd_config : str,
-        FC_Digit : str
+        FC_Digit : str,
+        scheduler: dict
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -134,17 +135,32 @@ class SalmonLitModule(LightningModule):
             # 예: self.backbone = self.load_pretrained_backbone()
             
     def configure_optimizers(self):
-    # AnalogSGD 최적화기를 사용하여 self.model의 파라미터를 최적화합니다.
-    # 여기서는 optimizer 딕셔너리에서 설정 값을 직접 가져옵니다.
-        optimizer = AnalogSGD(self.model.parameters(), lr=self.optimizer_config['lr'],
-                            weight_decay=self.optimizer_config['weight_decay'],
-                            momentum=self.optimizer_config.get('momentum', 0),  # momentum, 기본값은 0
-                            dampening=self.optimizer_config.get('dampening', 0),  # dampening, 기본값은 0
-                            nesterov=self.optimizer_config.get('nesterov', False))  # nesterov, 기본값은 False
+        # AnalogSGD로 최적화기 설정 변경
+        optimizer = AnalogSGD(self.backbone.parameters(), lr=self.hparams.optimizer['lr'],
+                            weight_decay=self.hparams.optimizer['weight_decay'],
+                            momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
+                            dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
+                            nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
+        optimizer.regroup_param_groups(self.backbone)
+        
+                # functools.partial 객체에서 인자를 추출하여 스케줄러를 생성
+        if isinstance(self.hparams.scheduler, functools.partial):
+            # functools.partial 객체의 인자를 딕셔너리 형태로 추출
+            scheduler_args = self.hparams.scheduler.args
+            scheduler_kwargs = self.hparams.scheduler.keywords
+            # 추출한 인자를 사용하여 스케줄러 생성
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, *scheduler_args, **scheduler_kwargs)
+        else:
+            # self.hparams.scheduler가 이미 딕셔너리 형태인 경우 바로 사용
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **self.hparams.scheduler)
 
-        # 여기서는 스케줄러 사용 예시가 제공되지 않았으므로, 최적화기만 반환합니다.
-        # 필요에 따라 스케줄러를 추가할 수 있습니다.
-        return optimizer
+        scheduler_config = {
+            'scheduler': scheduler,
+            'interval': 'epoch',
+            'frequency': 1
+        }
+
+        return [optimizer], [scheduler_config]
 
 
     
