@@ -2,13 +2,11 @@ _target_: src.models.exp6_2_module.SalmonLitModule
 
 # Define the IntegratedResNet configuration
 integrated_resnet:
-  _target_: src.models.components.exp6_2_model.IntegratedResNet
+  _target_: src.models.components.exp6_5_model.IntegratedResNet
   architecture: "resnet18"
   num_classes: 10
   rpu_config:
-    _target_: aihwkit.simulator.configs.SingleRPUConfig
-    device:
-      _target_: aihwkit.simulator.configs.devices.IdealDevice
+    _target_: aihwkit.simulator.presets.IdealizedPreset
     
 # Optimizer settings
 optimizer:
@@ -26,7 +24,6 @@ scheduler:
   step_size: 80
   gamma: 0.1
 
-compile: false
 
 # Additional hyperparameters
 compile: false
@@ -45,6 +42,6 @@ block: BasicBlock
 alpha: 0.3
 p_max: 10000
 opt_config : "AnalogSGD"
-sch_config : "off-schedule"
+sch_config : "Lr-step"
 sd_config : "true"
 detach_config : "BD+MD"
