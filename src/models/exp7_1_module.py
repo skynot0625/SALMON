@@ -233,22 +233,33 @@ class SalmonLitModule(LightningModule):
             # 훈련 단계에서만 특정 작업을 수행합니다.
             # 예: self.backbone = self.load_pretrained_backbone()
             
-    def configure_optimizers(self):
+   def configure_optimizers(self):
         # AnalogSGD로 최적화기 설정 변경
-        parameters = list(self.backbone.parameters()) + \
-                    list(self.attention1.parameters()) + \
-                    list(self.attention2.parameters()) + \
-                    list(self.attention3.parameters())
-        
-        optimizer = AnalogSGD(parameters, lr=self.hparams.optimizer['lr'],
+        optimizer = AnalogSGD(self.model.parameters(), lr=self.hparams.optimizer['lr'],
                             weight_decay=self.hparams.optimizer['weight_decay'],
                             momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
                             dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
                             nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.backbone)
+        optimizer.regroup_param_groups(self.model)
         
-        # 스케줄러를 사용하지 않으므로, 최적화기만 반환
-        return optimizer
+                # functools.partial 객체에서 인자를 추출하여 스케줄러를 생성
+        if isinstance(self.hparams.scheduler, functools.partial):
+            # functools.partial 객체의 인자를 딕셔너리 형태로 추출
+            scheduler_args = self.hparams.scheduler.args
+            scheduler_kwargs = self.hparams.scheduler.keywords
+            # 추출한 인자를 사용하여 스케줄러 생성
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, *scheduler_args, **scheduler_kwargs)
+        else:
+            # self.hparams.scheduler가 이미 딕셔너리 형태인 경우 바로 사용
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **self.hparams.scheduler)
+
+        scheduler_config = {
+            'scheduler': scheduler,
+            'interval': 'epoch',
+            'frequency': 1
+        }
+
+        return [optimizer], [scheduler_config]
 
     
 

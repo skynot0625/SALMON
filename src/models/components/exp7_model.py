@@ -427,7 +427,7 @@ class ResNetFeatures(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=self.replace_stride_with_dilation[2])
         
-        self.scala4 = ScalaNet(512 * block.expansion, 512 * block.expansion, size=4)  # Assuming ScalaNet is defined elsewhere
+        self.scala4 = nn.AvgPool2d(4, 4)  # Assuming ScalaNet is defined elsewhere
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer

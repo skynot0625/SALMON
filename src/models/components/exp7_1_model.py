@@ -446,7 +446,7 @@ class ResNetFeatures(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=self.replace_stride_with_dilation[2])
         
-        self.scala4 = ScalaNet(512 * block.expansion, 512 * block.expansion, size=4)  # Assuming ScalaNet is defined elsewhere
+        self.scala4 = nn.AvgPool2d(4, 4)  # Assuming ScalaNet is defined elsewhere
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
@@ -492,7 +492,6 @@ class ResNetClassifier(nn.Module):
         x = x.view(x.size(0), -1)  # Flatten the features
         x = self.fc(x)
         return x
-    
 def create_resnet_features(architecture="resnet34", zero_init_residual=False, groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
     """Create a ResNet Features model.
 
@@ -537,39 +536,29 @@ def create_resnet_classifier(in_features, num_classes=10):
     """
     return ResNetClassifier(in_features, num_classes)
 
-
-class ResNetBackboneModule(nn.Module):
-    def __init__(self, architecture="resnet34", num_classes=10):
-        super(ResNetBackboneModule, self).__init__()
-        # ResNet 특성 추출기 생성
-        self.features = create_resnet_features(architecture=architecture)
-        # ResNet 분류기 생성
-        in_features = 512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion
-        self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
+class CompleteResNet(nn.Module):
+    def __init__(self, architecture, num_classes, rpu_config_features, rpu_config_classifier):
+        super(CompleteResNet, self).__init__()
+        # ResNet 특성 추출기 및 분류기 생성
+        features = create_resnet_features(architecture=architecture, num_classes=num_classes)
+        classifier = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
+        
+        # 각각에 대해 convert_to_analog 처리 적용
+        self.features = convert_to_analog(features, rpu_config_features)
+        self.classifier = convert_to_analog(classifier, rpu_config_classifier)
 
     def forward(self, x):
-        x = self.features(x)  # 특성 추출
-        x = self.classifier(x)  # 분류
-        return x
-
-def create_resnet_Module(architecture="resnet34", num_classes=10):
-    """Create a ResNet model.
-
-    Args:
-        architecture (str): Which ResNet architecture to create (options: "resnet18", "resnet34", "resnet50", "resnet10").
-        num_classes (int): Number of output classes.
-
-    Returns:
-        ResNetBackbone: The created ResNet model.
-    """
-    model = ResNetBackboneModule(architecture=architecture, num_classes=num_classes)
-    return model
+        # 특성 추출
+        out_features, x1, x2, x3 = self.features(x)
+        # 최종 분류
+        out4 = self.classifier(out_features)
+        return out4,out_features, x1, x2, x3
     
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10, rpu_config=None):
         super(IntegratedResNet, self).__init__()
-        self.backbone = create_resnet_Module(architecture=architecture, num_classes=num_classes)
-
+        rpu_config_float = FloatingPointRPUConfig()
+        self.backbone = CompleteResNet(architecture, num_classes, rpu_config, rpu_config_float)
         # 어텐션 모듈들 생성
         block_type = 'BasicBlock' if architecture in ["resnet18", "resnet34", "resnet10"] else 'Bottleneck'
         self.attention1 = ResNetAttention1(block_type, num_classes)
