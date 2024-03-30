@@ -65,6 +65,24 @@ class SepConv(nn.Module):
         def forward(self, x):
             return self.op(x)
 
+class SepConv_group_off(nn.Module):
+    def __init__(self, channel_in, channel_out, kernel_size=3, stride=2, padding=1, affine=True):
+        super(SepConv_group_off, self).__init__()
+        self.op = nn.Sequential(
+            # 첫 번째 깊이별 컨볼루션 대신 일반 컨볼루션 사용
+            nn.Conv2d(channel_in, channel_out, kernel_size=kernel_size, stride=stride, padding=padding, bias=False),
+            nn.BatchNorm2d(channel_out, affine=affine),
+            nn.ReLU(inplace=False),
+            # 두 번째 깊이별 컨볼루션을 제거하고 일반 컨볼루션의 출력을 바로 사용
+            nn.Conv2d(channel_out, channel_out, kernel_size=1, padding=0, bias=False), # 이 부분은 선택적 조정이 가능합니다.
+            nn.BatchNorm2d(channel_out, affine=affine),
+            nn.ReLU(inplace=False),
+        )
+
+    def forward(self, x):
+        return self.op(x)
+
+
 def dowmsampleBottleneck(channel_in, channel_out, stride=2):
     return nn.Sequential(
         nn.Conv2d(channel_in, 128, kernel_size=1, stride=1),
@@ -444,10 +462,11 @@ class ResNetFeatures(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, previous_dilation, downsample))
+        use_conv = stride != 1 or self.inplanes != planes * block.expansion
+        layers.append(block(self.inplanes, planes, stride, use_conv))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, dilation=self.dilation))
+            layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
     
@@ -473,6 +492,7 @@ class ResNetClassifier(nn.Module):
         x = x.view(x.size(0), -1)  # Flatten the features
         x = self.fc(x)
         return x
+    
 def create_resnet_features(architecture="resnet34", zero_init_residual=False, groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
     """Create a ResNet Features model.
 
@@ -518,31 +538,56 @@ def create_resnet_classifier(in_features, num_classes=10):
     return ResNetClassifier(in_features, num_classes)
 
 
+class ResNetBackboneModule(nn.Module):
+    def __init__(self, architecture="resnet34", num_classes=10):
+        super(ResNetBackboneModule, self).__init__()
+        # ResNet 특성 추출기 생성
+        self.features = create_resnet_features(architecture=architecture)
+        # ResNet 분류기 생성
+        in_features = 512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion
+        self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
+
+    def forward(self, x):
+        x = self.features(x)  # 특성 추출
+        x = self.classifier(x)  # 분류
+        return x
+
+def create_resnet_Module(architecture="resnet34", num_classes=10):
+    """Create a ResNet model.
+
+    Args:
+        architecture (str): Which ResNet architecture to create (options: "resnet18", "resnet34", "resnet50", "resnet10").
+        num_classes (int): Number of output classes.
+
+    Returns:
+        ResNetBackbone: The created ResNet model.
+    """
+    model = ResNetBackboneModule(architecture=architecture, num_classes=num_classes)
+    return model
+    
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10, rpu_config=None):
         super(IntegratedResNet, self).__init__()
-        # ResNetFeatures와 ResNetClassifier를 생성합니다.
-        # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.
-        self.features = create_resnet_features(architecture=architecture)
-        self.features = convert_to_analog(self.features, rpu_config=rpu_config)
-        # 인풋 피처의 크기를 정확히 계산하는 것이 중요합니다. 여기서는 예시로 512 * block.expansion을 사용합니다.
-        # 실제 사용 시, ResNetFeatures의 마지막 출력 크기를 기반으로 설정해야 합니다.
-        block_type = BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck
-        in_features = 512 * block_type.expansion  # 이 값은 실제 출력 특성 맵의 크기에 따라 달라질 수 있습니다.
-        self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
-        rpu_config_float = FloatingPointRPUConfig()
-        self.classifier = convert_to_analog(self.classifier, rpu_config=rpu_config_float)
+        self.backbone = create_resnet_Module(architecture=architecture, num_classes=num_classes)
 
+        # 어텐션 모듈들 생성
+        block_type = 'BasicBlock' if architecture in ["resnet18", "resnet34", "resnet10"] else 'Bottleneck'
         self.attention1 = ResNetAttention1(block_type, num_classes)
         self.attention2 = ResNetAttention2(block_type, num_classes)
         self.attention3 = ResNetAttention3(block_type, num_classes)
-    
+
+        # rpu_config_float = FloatingPointRPUConfig()
+        # self.attention1 = convert_to_analog(self.attention1, rpu_config_float)
+        # self.attention2 = convert_to_analog(self.attention2, rpu_config_float) 
+        # self.attention3 = convert_to_analog(self.attention3, rpu_config_float)
+
     def forward(self, x):
-        feature, x1, x2, x3 = self.features(x)
-        out4 = self.classifier(feature)
-                # 어텐션 모듈들을 각각의 특성 맵에 적용
+        # ResNet 백본 통과
+        out4, feature, x1, x2, x3 = self.backbone(x)
+
+        # 어텐션 모듈들을 각각의 특성 맵에 적용
         out1, feature1 = self.attention1(x1)
         out2, feature2 = self.attention2(x2)
         out3, feature3 = self.attention3(x3)
 
-        return  out1, feature1, out2, feature2, out3, feature3, out4, feature
+        return out1, feature1, out2, feature2, out3, feature3, out4, feature

@@ -52,19 +52,14 @@ class SalmonLitModule(LightningModule):
         self.save_hyperparameters()
 
         # Initialize only the backbone component from the integrated_resnet
-        self.backbone = integrated_resnet.backbone
+        self.model = integrated_resnet
 
         # Store additional parameters as needed
         self.compile = compile
 
-        # Optimizer and scheduler settings
+        # Optimizer settings (scheduler settings could be added similarly)
         self.optimizer_config = optimizer
-#         self.hparams.architecture = integrated_resnet.architecture
-#         self.hparams.num_classes = integrated_resnet.num_classes
-#         self.hparams.rpu_config = {
-#             '_target_': integrated_resnet.rpu_config.__class__.__module__ + "." + integrated_resnet.rpu_config.__class__.__qualname__,
-            # Add additional properties of rpu_config as needed
-#         }
+
         # Initialize metrics
         self.criterion = torch.nn.CrossEntropyLoss()
         self.train_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
@@ -74,11 +69,11 @@ class SalmonLitModule(LightningModule):
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
         self.val_acc_best = MaxMetric()
-        
+
     def forward(self, x):
-        # 단순히 backbone 모델을 사용하여 출력을 계산합니다.
-        out_backbone, _, _, _, _ = self.backbone(x)
-        return out_backbone
+        # 모델의 전체 forward pass 구현
+        predictions = self.model(x)
+        return predictions
 
     def model_step(self, batch):
         inputs, labels = batch
@@ -96,14 +91,7 @@ class SalmonLitModule(LightningModule):
         self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
         return loss
 
-    def cross_entropy_distillation(self, student_output, teacher_output):
-        log_softmax_outputs = F.log_softmax(student_output / self.temperature, dim=1)
-        softmax_targets = F.softmax(teacher_output / self.temperature, dim=1)
-        return -(log_softmax_outputs * softmax_targets).sum(dim=1).mean()
-
-
-    # Validation step, test step, configure optimizers, etc.
-
+    # Validation and Test Steps similar to training_step
 
     def validation_step(self, batch, batch_idx):
         outputs, labels = self.model_step(batch)
@@ -146,16 +134,18 @@ class SalmonLitModule(LightningModule):
             # 예: self.backbone = self.load_pretrained_backbone()
             
     def configure_optimizers(self):
-        # AnalogSGD로 최적화기 설정 변경
-        optimizer = AnalogSGD(self.backbone.parameters(), lr=self.hparams.optimizer['lr'],
-                            weight_decay=self.hparams.optimizer['weight_decay'],
-                            momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
-                            dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
-                            nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.backbone)
-        
-        # 스케줄러를 사용하지 않으므로, 최적화기만 반환
+    # AnalogSGD 최적화기를 사용하여 self.model의 파라미터를 최적화합니다.
+    # 여기서는 optimizer 딕셔너리에서 설정 값을 직접 가져옵니다.
+        optimizer = AnalogSGD(self.model.parameters(), lr=self.optimizer_config['lr'],
+                            weight_decay=self.optimizer_config['weight_decay'],
+                            momentum=self.optimizer_config.get('momentum', 0),  # momentum, 기본값은 0
+                            dampening=self.optimizer_config.get('dampening', 0),  # dampening, 기본값은 0
+                            nesterov=self.optimizer_config.get('nesterov', False))  # nesterov, 기본값은 False
+
+        # 여기서는 스케줄러 사용 예시가 제공되지 않았으므로, 최적화기만 반환합니다.
+        # 필요에 따라 스케줄러를 추가할 수 있습니다.
         return optimizer
+
 
     
 if __name__ == "__main__":

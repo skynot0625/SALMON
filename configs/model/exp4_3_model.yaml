@@ -24,8 +24,6 @@ scheduler:
   step_size: 80
   gamma: 0.1
 
-compile: false
-
 # Additional hyperparameters
 compile: false
 model: "resnet18"

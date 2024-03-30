@@ -444,10 +444,11 @@ class ResNetFeatures(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, previous_dilation, downsample))
+        use_conv = stride != 1 or self.inplanes != planes * block.expansion
+        layers.append(block(self.inplanes, planes, stride, use_conv))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, dilation=self.dilation))
+            layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
     
@@ -473,6 +474,7 @@ class ResNetClassifier(nn.Module):
         x = x.view(x.size(0), -1)  # Flatten the features
         x = self.fc(x)
         return x
+    
 def create_resnet_features(architecture="resnet34", zero_init_residual=False, groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
     """Create a ResNet Features model.
 
@@ -517,6 +519,32 @@ def create_resnet_classifier(in_features, num_classes=10):
     """
     return ResNetClassifier(in_features, num_classes)
 
+class ResNetBackboneModule(nn.Module):
+    def __init__(self, architecture="resnet34", num_classes=10):
+        super(ResNetBackboneModule, self).__init__()
+        # ResNet 특성 추출기 생성
+        self.features = create_resnet_features(architecture=architecture)
+        # ResNet 분류기 생성
+        in_features = 512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion
+        self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
+
+    def forward(self, x):
+        x = self.features(x)  # 특성 추출
+        x = self.classifier(x)  # 분류
+        return x
+
+def create_resnet_Module(architecture="resnet34", num_classes=10):
+    """Create a ResNet model.
+
+    Args:
+        architecture (str): Which ResNet architecture to create (options: "resnet18", "resnet34", "resnet50", "resnet10").
+        num_classes (int): Number of output classes.
+
+    Returns:
+        ResNetBackbone: The created ResNet model.
+    """
+    model = ResNetBackboneModule(architecture=architecture, num_classes=num_classes)
+    return model
 
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10, rpu_config=None):
