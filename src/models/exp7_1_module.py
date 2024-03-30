@@ -1,11 +1,11 @@
 from typing import Any, Dict, Tuple
-
+import functools  # 이 라인을 추가하세요
 import torch
 import torch.nn.functional as F
 from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
-from src.models.components.exp4_model import IntegratedResNet
+from src.models.components.exp7_1_model import IntegratedResNet
 from aihwkit.optim import AnalogSGD, AnalogAdam
 from aihwkit.nn.conversion import convert_to_analog
 from aihwkit.simulator.presets import TikiTakaEcRamPreset, IdealizedPreset, EcRamPreset
@@ -50,7 +50,8 @@ class SalmonLitModule(LightningModule):
         opt_config : str,
         sch_config : str,
         sd_config : str,
-        FC_Digit : str
+        FC_Digit : str,
+        scheduler: dict
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -58,7 +59,8 @@ class SalmonLitModule(LightningModule):
         # Initialize IntegratedResNet with parameters from integrated_resnet_config
         
         # 모듈 구성요소 설정
-        self.backbone = integrated_resnet.backbone
+        self.features = integrated_resnet.features
+        self.classifier = integrated_resnet.classifier
         self.attention1 = integrated_resnet.attention1
         self.attention2 = integrated_resnet.attention2
         self.attention3 = integrated_resnet.attention3
@@ -98,7 +100,8 @@ class SalmonLitModule(LightningModule):
 
     def forward(self, x):
         # Forward pass through the backbone
-        out_backbone, feature_backbone, x1, x2, x3 = self.backbone(x)
+        feature_backbone, x1, x2, x3 = self.features(x)
+        out_backbone = self.classifier(feature_backbone)
 
         # Forward pass through the attention mechanisms
         out_attention1, feature_attention1 = self.attention1(x1)
@@ -117,7 +120,11 @@ class SalmonLitModule(LightningModule):
         inputs = inputs.to(self.device)
 
         # Forward pass for features and outputs
-        out_backbone, feature_backbone, x1, x2, x3 = self.backbone(inputs)
+        feature_backbone, x1, x2, x3 = self.features(inputs)
+
+        # Classification step
+        out_backbone = self.classifier(feature_backbone)
+
         out_attention1, feature_attention1 = self.attention1(x1)
         out_attention2, feature_attention2 = self.attention2(x2)
         out_attention3, feature_attention3 = self.attention3(x3)
@@ -133,14 +140,8 @@ class SalmonLitModule(LightningModule):
         inputs, labels = batch
         inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-        # Forward pass for features and outputs
-        out_backbone, feature_backbone, x1, x2, x3 = self.backbone(inputs)
-        out_attention1, feature_attention1 = self.attention1(x1)
-        out_attention2, feature_attention2 = self.attention2(x2)
-        out_attention3, feature_attention3 = self.attention3(x3)
-
-        outputs = [out_backbone, out_attention3, out_attention2, out_attention1]
-        features = [feature_backbone, feature_attention3, feature_attention2, feature_attention1]
+        # Use the model_step to forward inputs through the network
+        outputs, features, _ = self.model_step((inputs, labels))
 
         # Initialize adaptation layers if not done
         if not self.init_adaptation_layers:
@@ -157,17 +158,19 @@ class SalmonLitModule(LightningModule):
             loss += self.cross_entropy_distillation(output, teacher_output) * self.loss_coefficient
             loss += self.criterion(output, labels) * (1 - self.loss_coefficient)
 
-            # Feature distillation
+            # Feature distillation for subsequent layers
             if idx != 0:
-                loss += torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
+                adapted_feature = self.adaptation_layers[idx-1](feature)
+                loss += torch.dist(adapted_feature, teacher_feature) * self.feature_loss_coefficient
 
-        # 메트릭 업데이트 및 로깅
+        # Metrics update and logging
         self.train_acc(torch.argmax(outputs[0], dim=1), labels)
         self.train_loss(loss)
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True)
         self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
 
         return loss
+
 
 
     def cross_entropy_distillation(self, student_output, teacher_output):
@@ -177,7 +180,6 @@ class SalmonLitModule(LightningModule):
 
 
     # Validation step, test step, configure optimizers, etc.
-
 
     def validation_step(self, batch, batch_idx):
         outputs, features, labels = self.model_step(batch)
@@ -233,26 +235,29 @@ class SalmonLitModule(LightningModule):
             # 훈련 단계에서만 특정 작업을 수행합니다.
             # 예: self.backbone = self.load_pretrained_backbone()
             
-   def configure_optimizers(self):
-        # AnalogSGD로 최적화기 설정 변경
-        optimizer = AnalogSGD(self.model.parameters(), lr=self.hparams.optimizer['lr'],
-                            weight_decay=self.hparams.optimizer['weight_decay'],
-                            momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
-                            dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
-                            nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.model)
+    def configure_optimizers(self):
+    # 각 모듈의 매개변수를 최적화기에 전달
+        parameters = list(self.features.parameters()) + \
+                    list(self.classifier.parameters()) + \
+                    list(self.attention1.parameters()) + \
+                    list(self.attention2.parameters()) + \
+                    list(self.attention3.parameters())
         
-                # functools.partial 객체에서 인자를 추출하여 스케줄러를 생성
+        # AnalogSGD 최적화기 설정
+        optimizer = AnalogSGD(parameters, lr=self.hparams.optimizer['lr'],
+                            weight_decay=self.hparams.optimizer['weight_decay'],
+                            momentum=self.hparams.optimizer.get('momentum', 0),
+                            dampening=self.hparams.optimizer.get('dampening', 0),
+                            nesterov=self.hparams.optimizer.get('nesterov', False))
+        optimizer.regroup_param_groups(self.features, self.classifier)
+        # 스케줄러 설정
         if isinstance(self.hparams.scheduler, functools.partial):
-            # functools.partial 객체의 인자를 딕셔너리 형태로 추출
             scheduler_args = self.hparams.scheduler.args
             scheduler_kwargs = self.hparams.scheduler.keywords
-            # 추출한 인자를 사용하여 스케줄러 생성
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer, *scheduler_args, **scheduler_kwargs)
         else:
-            # self.hparams.scheduler가 이미 딕셔너리 형태인 경우 바로 사용
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **self.hparams.scheduler)
-
+        
         scheduler_config = {
             'scheduler': scheduler,
             'interval': 'epoch',
@@ -260,6 +265,7 @@ class SalmonLitModule(LightningModule):
         }
 
         return [optimizer], [scheduler_config]
+
 
     
 

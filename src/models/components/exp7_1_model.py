@@ -492,6 +492,7 @@ class ResNetClassifier(nn.Module):
         x = x.view(x.size(0), -1)  # Flatten the features
         x = self.fc(x)
         return x
+    
 def create_resnet_features(architecture="resnet34", zero_init_residual=False, groups=1, width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
     """Create a ResNet Features model.
 
@@ -540,7 +541,7 @@ class CompleteResNet(nn.Module):
     def __init__(self, architecture, num_classes, rpu_config_features, rpu_config_classifier):
         super(CompleteResNet, self).__init__()
         # ResNet 특성 추출기 및 분류기 생성
-        features = create_resnet_features(architecture=architecture, num_classes=num_classes)
+        features = create_resnet_features(architecture=architecture)
         classifier = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
         
         # 각각에 대해 convert_to_analog 처리 적용
@@ -552,31 +553,56 @@ class CompleteResNet(nn.Module):
         out_features, x1, x2, x3 = self.features(x)
         # 최종 분류
         out4 = self.classifier(out_features)
-        return out4,out_features, x1, x2, x3
+        return out4, out_features, x1, x2, x3
+    
+class Backbone(nn.Module):
+    def __init__(self, architecture="resnet10", num_classes=10, rpu_config_features=None, rpu_config_classifier=None):
+        super(Backbone, self).__init__()
+        # 특성 추출기 생성
+        features_model = create_resnet_features(architecture=architecture)
+        # 분류기 생성
+        classifier_model = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
+        
+        # convert_to_analog 처리 적용
+        self.features = convert_to_analog(features_model, rpu_config_features) if rpu_config_features else features_model
+        self.classifier = convert_to_analog(classifier_model, rpu_config_classifier) if rpu_config_classifier else classifier_model
+
+    def forward(self, x):
+        # 특성 추출 및 중간 레이어 출력
+        out_features, x1, x2, x3 = self.features(x)
+        # 최종 분류
+        out4 = self.classifier(out_features)
+        return out4, out_features, x1, x2, x3    
     
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10, rpu_config=None):
         super(IntegratedResNet, self).__init__()
+        
+        # 각각에 대해 convert_to_analog 처리 적용 전, 특성 추출기 및 분류기 생성
+        features_model = create_resnet_features(architecture=architecture)
+        classifier_model = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
+
+        # convert_to_analog 처리 적용
         rpu_config_float = FloatingPointRPUConfig()
-        self.backbone = CompleteResNet(architecture, num_classes, rpu_config, rpu_config_float)
+        self.features = convert_to_analog(features_model, rpu_config)
+        self.classifier = convert_to_analog(classifier_model, rpu_config_float)
+
         # 어텐션 모듈들 생성
         block_type = 'BasicBlock' if architecture in ["resnet18", "resnet34", "resnet10"] else 'Bottleneck'
         self.attention1 = ResNetAttention1(block_type, num_classes)
         self.attention2 = ResNetAttention2(block_type, num_classes)
         self.attention3 = ResNetAttention3(block_type, num_classes)
 
-        # rpu_config_float = FloatingPointRPUConfig()
-        # self.attention1 = convert_to_analog(self.attention1, rpu_config_float)
-        # self.attention2 = convert_to_analog(self.attention2, rpu_config_float) 
-        # self.attention3 = convert_to_analog(self.attention3, rpu_config_float)
-
     def forward(self, x):
-        # ResNet 백본 통과
-        out4, feature, x1, x2, x3 = self.backbone(x)
-
+        # 특성 추출 및 중간 레이어 출력
+        out_features, x1, x2, x3 = self.features(x)
+        
+        # 최종 분류
+        out4 = self.classifier(out_features)
+        
         # 어텐션 모듈들을 각각의 특성 맵에 적용
         out1, feature1 = self.attention1(x1)
         out2, feature2 = self.attention2(x2)
         out3, feature3 = self.attention3(x3)
 
-        return out1, feature1, out2, feature2, out3, feature3, out4, feature
+        return out1, feature1, out2, feature2, out3, feature3, out4, out_features
