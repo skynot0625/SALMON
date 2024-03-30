@@ -36,6 +36,6 @@ autoaugment: False
 batchsize: 128
 N_CLASSES: 10
 opt_config : "AnalogSGD"
-sch_config : "off-schedule"
+sch_config : "Lr-step"
 
 
