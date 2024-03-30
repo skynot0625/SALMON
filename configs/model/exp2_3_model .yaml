@@ -1,15 +1,14 @@
-_target_: src.models.exp6_1_module.SalmonLitModule
+_target_: src.models.exp2_3_module.SalmonLitModule
 
-# Define the IntegratedResNet configuration
 integrated_resnet:
-  _target_: src.models.components.exp6_1_model.IntegratedResNet
+  _target_: src.models.components.exp2_model.IntegratedResNet
   architecture: "resnet18"
   num_classes: 10
   rpu_config:
     _target_: aihwkit.simulator.configs.SingleRPUConfig
     device:
       _target_: aihwkit.simulator.configs.devices.IdealDevice
-    
+
 # Optimizer settings
 optimizer:
   lr: 0.01
@@ -29,22 +28,14 @@ scheduler:
 compile: false
 
 # Additional hyperparameters
-compile: false
 model: "resnet18"
 dataset: "cifar10"
 epoch: 300
-loss_coefficient: 0.5
-feature_loss_coefficient: 0.03
 dataset_path: "data"
 autoaugment: False
-temperature: 3
 batchsize: 128
-init_lr: 0.1
 N_CLASSES: 10
-block: BasicBlock
-alpha: 0.3
-p_max: 10000
 opt_config : "AnalogSGD"
-sch_config : "Lr-step"
-sd_config : "true"
-detach_config : "BD"
+sch_config : "off-schedule"
+
+

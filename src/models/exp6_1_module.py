@@ -48,7 +48,7 @@ class SalmonLitModule(LightningModule):
         alpha: float,
         p_max: int,
         opt_config : str,
-        sch_config : str
+        sch_config : str,
         sd_config : str,
         detach_config : str
     ):

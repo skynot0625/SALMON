@@ -1,4 +1,4 @@
-_target_: src.models.exp6_module.SalmonLitModule
+_target_: src.models.exp6_1_module.SalmonLitModule
 
 # Define the IntegratedResNet configuration
 integrated_resnet:
@@ -20,6 +20,13 @@ optimizer:
   # dampening: 0  # 선택적
   # nesterov: False  # 선택적
 
+scheduler:
+  _target_: torch.optim.lr_scheduler.StepLR
+  _partial_: true
+  step_size: 80
+  gamma: 0.1
+
+compile: false
 
 # Additional hyperparameters
 compile: false

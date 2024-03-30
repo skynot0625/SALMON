@@ -12,7 +12,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet18","lr001","AnalogSGD","off-schedule","IdealDevice","SingleRPUConfig","SD","BD+RD"]
+tags: ["cifar10", "Resnet18","lr001","AnalogSGD","Lr-step","IdealDevice","SingleRPUConfig","SD","BD+RD"]
 
 seed: 12345
 

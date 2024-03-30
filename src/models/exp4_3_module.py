@@ -1,11 +1,11 @@
 from typing import Any, Dict, Tuple
-import functools
+import functools  # 이 라인을 추가하세요
 import torch
 import torch.nn.functional as F
 from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
-from src.models.components.exp6_1_model import IntegratedResNet
+from src.models.components.exp4_model import IntegratedResNet
 from aihwkit.optim import AnalogSGD, AnalogAdam
 from aihwkit.nn.conversion import convert_to_analog
 from aihwkit.simulator.presets import TikiTakaEcRamPreset, IdealizedPreset, EcRamPreset
@@ -24,7 +24,7 @@ from aihwkit.simulator.configs import (
     UpdateParameters,IdealDevice
 )
 from aihwkit.simulator.configs import SoftBoundsPmaxDevice
-from aihwkit.simulator.configs import SingleRPUConfig
+from aihwkit.simulator.configs import SingleRPUConfig, ConstantStepDevice, IdealDevice
 from aihwkit.simulator.configs  import SoftBoundsDevice, SoftBoundsPmaxDevice
 
 class SalmonLitModule(LightningModule):
@@ -49,8 +49,6 @@ class SalmonLitModule(LightningModule):
         p_max: int,
         opt_config : str,
         sch_config : str,
-        sd_config : str,
-        detach_config : str,
         scheduler: dict
     ):
         super().__init__()
@@ -248,6 +246,7 @@ class SalmonLitModule(LightningModule):
                             nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
         optimizer.regroup_param_groups(self.backbone)
         
+                        # functools.partial 객체에서 인자를 추출하여 스케줄러를 생성
         if isinstance(self.hparams.scheduler, functools.partial):
             # functools.partial 객체의 인자를 딕셔너리 형태로 추출
             scheduler_args = self.hparams.scheduler.args
@@ -265,7 +264,8 @@ class SalmonLitModule(LightningModule):
         }
 
         return [optimizer], [scheduler_config]
+
     
-    
+
 if __name__ == "__main__":
     _ = SalmonLitModule(None, None, None, None)
