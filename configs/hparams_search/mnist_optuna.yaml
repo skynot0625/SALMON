@@ -6,7 +6,7 @@
 defaults:
   - override /hydra/sweeper: optuna
 
-optimized_metric: "val/acc_best"
+optimized_metric: "val/acc_0"
 
 hydra:
   mode: "MULTIRUN"

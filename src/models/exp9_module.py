@@ -34,32 +34,14 @@ class SalmonLitModule(LightningModule):
     def __init__(
         self,
         model: str,
-        integrated_resnet: IntegratedResNet,
-        integrated_resnet_t : IntegratedResNet_T,
+        student: IntegratedResNet,
+        teacher : IntegratedResNet_T,
         optimizer: dict,
         compile: bool,
         dataset: str,
         epoch: int,
         dataset_path: str,
-        autoaugment: bool,
-        batchsize: int,
-        N_CLASSES: int,
-        opt_config : str,
-        sch_config : str
-    ):
-        super().__init__()
-        self.save_hyperparameters()
-
-        # Initialize only the backbone component from the integrated_resnet
-        self.backbone = integrated_resnet.backbone
-
-        # Store additional parameters as needed
-        self.compile = compile
-
-        # Optimizer and scheduler settings
-        self.optimizer_config = optimizer
-#         self.hparams.architecture = integrated_resnet.architecture
-#         self.hparams.num_classes = integrated_resnet.num_classes
+        autoaugment: bool = integrated_resnet.num_classes
 #         self.hparams.rpu_config = {
 #             '_target_': integrated_resnet.rpu_config.__class__.__module__ + "." + integrated_resnet.rpu_config.__class__.__qualname__,
             # Add additional properties of rpu_config as needed
@@ -73,7 +55,26 @@ class SalmonLitModule(LightningModule):
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
         self.val_acc_best = MaxMetric()
-        
+        ,
+        batchsize: int,
+        N_CLASSES: int,
+        opt_config : str,
+        sch_config : str
+    ):
+        super().__init__()
+        self.save_hyperparameters()
+
+        # Initialize only the backbone component from the integrated_resnet
+        self.student = student.backbone
+        self.teacher = teacher.backbone
+
+        # Store additional parameters as needed
+        self.compile = compile
+
+        # Optimizer and scheduler settings
+        self.optimizer_config = optimizer
+#         self.hparams.architecture = integrated_resnet.architecture
+#         self.hparams.num_classes
     def forward(self, x):
         # 단순히 backbone 모델을 사용하여 출력을 계산합니다.
         out_backbone, _, _, _, _ = self.backbone(x)
@@ -81,19 +82,36 @@ class SalmonLitModule(LightningModule):
 
     def model_step(self, batch):
         inputs, labels = batch
-        outputs = self(inputs)
-        return outputs, labels
+        student_outputs = self.student(inputs)
+        with torch.no_grad():
+            teacher_outputs = self.teacher(inputs)
+        return student_outputs, teacher_outputs, labels
 
     def training_step(self, batch, batch_idx):
-        outputs, labels = self.model_step(batch)
-        loss = self.criterion(outputs, labels)
-
-        self.train_acc(torch.argmax(outputs, dim=1), labels)
-        self.train_loss(loss)
-
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
+        student_outputs, teacher_outputs, labels = self.model_step(batch)
+        loss = self.calculate_loss(student_outputs, teacher_outputs, labels)
+        self.log("train_loss", loss)
         return loss
+
+    def calculate_loss(self, student_outputs, teacher_outputs, labels):
+        # Cross Entropy Loss for the labels
+        ce_loss = F.cross_entropy(student_outputs, labels)
+        # AT Loss
+        at_loss = self.attention_transfer_loss(student_outputs, teacher_outputs)
+        # Combine losses
+        total_loss = ce_loss + at_loss
+        return total_loss
+
+    def attention_transfer_loss(self, student_outputs, teacher_outputs):
+        student_attention = self.generate_attention_map(student_outputs)
+        teacher_attention = self.generate_attention_map(teacher_outputs).detach()
+        at_loss = F.mse_loss(student_attention, teacher_attention)
+        return at_loss
+
+    def generate_attention_map(self, outputs):
+        attention_map = outputs.pow(2).mean(1).view(outputs.size(0), -1)
+        attention_map = F.normalize(attention_map, p=2, dim=1)
+        return attention_map
 
     def cross_entropy_distillation(self, student_output, teacher_output):
         log_softmax_outputs = F.log_softmax(student_output / self.temperature, dim=1)
