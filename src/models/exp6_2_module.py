@@ -209,11 +209,12 @@ class SalmonLitModule(LightningModule):
         self.val_acc.reset()  # 모든 정확도 추적기를 리셋
         self.val_acc_0_best.reset()
 
-
     def test_step(self, batch, batch_idx):
-        outputs, labels = self.model_step(batch)
-        loss = self.criterion(outputs, labels)
-        acc = self.test_acc(torch.argmax(outputs, dim=1), labels)
+        outputs, features, labels = self.model_step(batch)
+        main_output = outputs[0]  # 메인 출력을 사용하여 손실과 정확도를 계산합니다.
+
+        loss = self.criterion(main_output, labels)
+        acc = self.test_acc(torch.argmax(main_output, dim=1), labels)
 
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True)

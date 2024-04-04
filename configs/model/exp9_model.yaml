@@ -1,0 +1,39 @@
+_target_: src.models.exp9_module.SalmonLitModule
+
+integrated_resnet:
+  _target_: src.models.components.exp2_model.IntegratedResNet
+  architecture: "resnet18"
+  num_classes: 10
+  rpu_config:
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
+    device:
+      _target_: aihwkit.simulator.configs.devices.IdealDevice
+
+integrated_resnet_t:
+  _target_: src.models.components.salmon.IntegratedResNet
+  architecture: "resnet10"
+  num_classes: 10
+
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  weight_decay: 0.0
+  # SGD를 사용하므로, Adam에 특화된 betas, eps, amsgrad 매개변수는 제거
+  momentum: 0.9  # SGD에 자주 사용되는 momentum 매개변수 추가
+  # 필요한 경우 dampening과 nesterov 매개변수를 추가할 수 있습니다. 예시에서는 생략
+  # dampening: 0  # 선택적
+  # nesterov: False  # 선택적
+
+
+# Additional hyperparameters
+model: "resnet18"
+dataset: "cifar10"
+epoch: 300
+dataset_path: "data"
+autoaugment: False
+batchsize: 128
+N_CLASSES: 10
+opt_config : "AnalogSGD"
+sch_config : "off-schedule"
+
+

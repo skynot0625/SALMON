@@ -211,14 +211,15 @@ class SalmonLitModule(LightningModule):
 
 
     def test_step(self, batch, batch_idx):
-        outputs, labels = self.model_step(batch)
-        loss = self.criterion(outputs, labels)
-        acc = self.test_acc(torch.argmax(outputs, dim=1), labels)
+        outputs, features, labels = self.model_step(batch)
+        main_output = outputs[0]  # 메인 출력을 사용하여 손실과 정확도를 계산합니다.
+
+        loss = self.criterion(main_output, labels)
+        acc = self.test_acc(torch.argmax(main_output, dim=1), labels)
 
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True)
         return {"test_loss": loss, "test_acc": acc}
-
     def on_test_epoch_end(self):
         # 여기서 필요한 추가적인 작업을 수행할 수 있습니다.
         pass
