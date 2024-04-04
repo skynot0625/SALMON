@@ -1,4 +1,4 @@
-_target_: src.models.exp2_2_module.SalmonLitModule
+_target_: src.models.exp8_module.SalmonLitModule
 
 integrated_resnet:
   _target_: src.models.components.exp8_model.IntegratedResNet

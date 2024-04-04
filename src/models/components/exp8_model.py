@@ -22,23 +22,24 @@ import torch.nn as nn
 sys.path.append('/path/to/src/aihwkit') 
 
 class VGG(nn.Module):
-    def __init__(self, vgg_name, num_classes):
+    def __init__(self, vgg_name, num_classes=10):
         super(VGG, self).__init__()
         self.features = self._make_layers(cfg[vgg_name])
         # CIFAR-10을 위한 수정된 classifier
+        # 마지막 풀링 레이어 후 512 채널의 1x1 특성 맵이 예상됩니다.
         self.classifier = nn.Sequential(
-            nn.Linear(512 * 2 * 2, 4096),  # 특성 맵 크기에 따라 조정된 입력 크기
+            nn.Linear(512 * 1 * 1, 4096),  # 조정된 입력 크기
             nn.ReLU(True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(4096, num_classes),  # CIFAR-10 클래스 수
+            nn.Linear(4096, num_classes),
         )
 
     def forward(self, x):
         out = self.features(x)
-        out = out.view(out.size(0), -1)
+        out = out.view(out.size(0), -1)  # 특성 맵을 일렬로 펼침
         out = self.classifier(out)
         return out
 
@@ -57,7 +58,6 @@ class VGG(nn.Module):
                 in_channels = x
         return nn.Sequential(*layers)
 
-
 cfg = {
     'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
     'VGG19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
@@ -75,7 +75,7 @@ def create_vgg_network(model_name, n_classes):
     """
     global N_CLASSES
     N_CLASSES = n_classes  # Update the global variable for the number of classes
-    return VGG(model_name)
+    return VGG(model_name,n_classes)
 
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="VGG11", num_classes=10, rpu_config=None):
@@ -83,7 +83,7 @@ class IntegratedResNet(nn.Module):
 #         self.architecture = architecture
 #         self.num_classes = num_classes
 #         self.rpu_config = rpu_config
-        self.backbone = create_vgg_network(architecture, num_classes)
+        self.backbone = create_vgg_network(model_name = architecture,  n_classes= num_classes)
         self.backbone = convert_to_analog(self.backbone, rpu_config=rpu_config)
         
     def forward(self, x):
