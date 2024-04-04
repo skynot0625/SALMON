@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: salmon
-  - override /model: exp7_2_model
+  - override /model: exp8_1_model
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet18","lr001","AnalogSGD","IdealizedPreset","FC-Digit","off-schedule"]
+tags: ["cifar10", "VGG18","lr001","AnalogSGD","off-schedule","IdealDevice","SingleRPUConfig"]
 
 seed: 12345
 
@@ -31,8 +31,8 @@ data:
 logger:
   wandb:
     tags: ${tags}
-    group: "Exp7-Analog-Resnet-Cifar10-FC-digit"
+    group: "Exp2-Analog-Resnet-Cifar10"
   aim:
-    experiment: "7"
+    experiment: "2"
 
 # Analog Resnet model test

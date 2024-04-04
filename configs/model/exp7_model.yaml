@@ -36,5 +36,5 @@ batchsize: 128
 N_CLASSES: 10
 opt_config : "AnalogSGD"
 sch_config : "Lr-step"
-sd_config : "true"
+sd_config : "false"
 FC_Digit : "true"

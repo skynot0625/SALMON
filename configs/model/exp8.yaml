@@ -1,13 +1,14 @@
-_target_: src.models.exp7_2_module.SalmonLitModule
+_target_: src.models.exp2_2_module.SalmonLitModule
 
-# Define the IntegratedResNet configuration
 integrated_resnet:
-  _target_: src.models.components.exp7_model.IntegratedResNet
-  architecture: "resnet18"
+  _target_: src.models.components.exp8_model.IntegratedResNet
+  architecture: "VGG11"
   num_classes: 10
   rpu_config:
-    _target_: aihwkit.simulator.presets.IdealizedPreset
-    
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
+    device:
+      _target_: aihwkit.simulator.configs.devices.IdealDevice
+
 # Optimizer settings
 optimizer:
   lr: 0.01
@@ -18,10 +19,9 @@ optimizer:
   # dampening: 0  # 선택적
   # nesterov: False  # 선택적
 
-compile: false
 
 # Additional hyperparameters
-model: "resnet18"
+model: "VGG11"
 dataset: "cifar10"
 epoch: 300
 dataset_path: "data"
@@ -29,6 +29,6 @@ autoaugment: False
 batchsize: 128
 N_CLASSES: 10
 opt_config : "AnalogSGD"
-sch_config : "false"
-sd_config : "false"
-FC_Digit : "true"
+sch_config : "off-schedule"
+
+

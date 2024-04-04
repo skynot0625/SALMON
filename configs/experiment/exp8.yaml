@@ -12,7 +12,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet-34-channel64-lr-001"]
+tags: ["cifar10", "VGG11","Lr01","AnalogSGD","off-schedule","IdealDevice","SingleRPUConfig"]
 
 seed: 12345
 
@@ -33,7 +33,7 @@ data:
 logger:
   wandb:
     tags: ${tags}
-    group: "Exp8-Analog-Detach-BD-Cifar10-SD"
+    group: "Exp8-Analog-VGG11-Cifar10"
   aim:
     experiment: "8"
 
