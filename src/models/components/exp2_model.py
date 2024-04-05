@@ -241,9 +241,8 @@ class ResNetBackbone(nn.Module):
             self.fc4 = nn.Linear(out4_feature.size(1), 10).to(out4_feature.device)
             
         out4 = self.fc4(out4_feature)
-        out4 = self.fc4(out4_feature)
         
-        return out4, out4_feature, x1, x2, x3
+        return out4, out4_feature, x4, x1, x2, x3
 
 
 def create_resnet(architecture="resnet34", num_classes=10):
@@ -311,9 +310,9 @@ class IntegratedResNet(nn.Module):
         
     def forward(self, x):
         # ResNet 백본 통과
-        out4, feature, x1, x2, x3 = self.backbone(x)
+        out4, feature, x4, x1, x2, x3 = self.backbone(x)
 
-        return out4
+        return out4, feature, x4
 
 class IntegratedResNet_T(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10):
@@ -326,6 +325,6 @@ class IntegratedResNet_T(nn.Module):
         
     def forward(self, x):
         # ResNet 백본 통과
-        out4, feature, x1, x2, x3 = self.backbone(x)
+        out4, feature, x4, x1, x2, x3 = self.backbone(x)
 
-        return out4
+        return out4, feature, x4

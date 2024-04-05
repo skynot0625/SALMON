@@ -34,8 +34,8 @@ class SalmonLitModule(LightningModule):
     def __init__(
         self,
         model: str,
-        student: IntegratedResNet,
-        teacher : IntegratedResNet_T,
+        integrated_resnet: IntegratedResNet,
+        integrated_resnet_t : IntegratedResNet_T,
         optimizer: dict,
         compile: bool,
         dataset: str,
@@ -45,21 +45,20 @@ class SalmonLitModule(LightningModule):
         N_CLASSES: int,
         opt_config : str,
         sch_config : str,
-        temperature: float,
         p: float,
         lambda_kd: float,  # 추가된 파라미터
-        train_teacher : bool
+        train_teacher : bool,
+        autoaugment: bool
     ):
         super().__init__()
         self.save_hyperparameters()
 
         # Initialize only the backbone component from the integrated_resnet
-        self.student = student.backbone
-        self.teacher = teacher.backbone
+        self.student = integrated_resnet.backbone
+        self.teacher = integrated_resnet_t.backbone
 
         # Store additional parameters as needed
         self.compile = compile
-        self.temperature = temperature
         self.p = p
         self.lambda_kd = lambda_kd  # lambda_kd를 클래스 변수로 저장
         self.train_teacher = train_teacher
@@ -73,6 +72,7 @@ class SalmonLitModule(LightningModule):
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
         self.val_acc_best = MaxMetric()
+        self.autoaugment = autoaugment
 #         self.hparams.architecture = integrated_resnet.architecture
 #         self.hparams.num_classes
     def forward(self, x):
@@ -80,72 +80,94 @@ class SalmonLitModule(LightningModule):
 
     def model_step(self, batch):
         inputs, labels = batch
-        student_outputs = self.student(inputs)
-        teacher_outputs = self.teacher(inputs) if self.hparams.train_teacher else None
-        return student_outputs, teacher_outputs, labels
+        # Extracting outputs for student and teacher models
+        out4_s, feature_s, _ = self.student(inputs)  # Adjusted to match the forward method signature
+        if self.train_teacher:
+            out4_t, feature_t, _ = self.teacher(inputs)  # Adjusted to match the forward method signature
+        else:
+            out4_t, feature_t = None, None
+        return out4_s, feature_s, out4_t, feature_t, labels
 
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
-        student_outputs, teacher_outputs, _ = self.model_step(batch)
+        # Extract outputs and the last feature map (before pooling) from student and teacher networks
+        out4_s, _, features_s = self.student(inputs)  # Use features_s as the last feature map (x4)
+        if self.train_teacher:
+            out4_t, _, features_t = self.teacher(inputs)  # Use features_t as the last feature map (x4)
+        else:
+            out4_t, features_t = None, None
 
-        # Compute the cross-entropy loss for the student model
-        ce_loss_student = self.criterion(student_outputs, labels)
+        # Compute the cross-entropy loss for the student's output
+        ce_loss = self.criterion(out4_s, labels)
 
-        # Initialize the teacher loss to zero if not training the teacher
-        ce_loss_teacher = 0.0
-        if self.hparams.train_teacher:
-            # Compute the cross-entropy loss for the teacher model, if we are training it
-            ce_loss_teacher = self.criterion(teacher_outputs, labels)
+        # Initialize AT loss
+        at_loss = 0.0
+        if self.train_teacher:
+            # Compute the AT loss between student and teacher features
+            at_loss = self.attention_transfer_loss(features_s, features_t, self.p)
 
-        # Compute the Attention Transfer (AT) loss, if the teacher model is used
-        at_loss = self.attention_transfer_loss(student_outputs, teacher_outputs) if teacher_outputs is not None else 0.0
-
-        # Combine the losses
-        # If train_teacher is True, both the student's and teacher's losses are included
-        # along with the AT loss. If False, only the student's loss and AT loss are considered.
-        total_loss = ce_loss_student + self.hparams.lambda_kd * at_loss + ce_loss_teacher
+        # Combine the cross-entropy loss and the AT loss
+        total_loss = ce_loss + self.lambda_kd * at_loss
 
         # Logging
-        self.log("train/loss_student", ce_loss_student, on_step=False, on_epoch=True, prog_bar=True)
-        if self.hparams.train_teacher:
-            self.log("train/loss_teacher", ce_loss_teacher, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/loss_at", at_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/total_loss", total_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train/ce_loss", ce_loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train/at_loss", at_loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train/total_loss", total_loss, on_step=True, on_epoch=True, prog_bar=True)
 
-        acc = self.train_acc(torch.argmax(student_outputs, dim=1), labels)
-        self.log("train/acc_student", acc, on_step=False, on_epoch=True, prog_bar=True)
+        # Compute and log the accuracy
+        pred = torch.argmax(out4_s, dim=1)
+        acc = self.accuracy(pred, labels)
+        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
 
-        # To ensure the optimizer applies the gradients, return the total loss
         return total_loss
 
-
-    def attention_transfer_loss(self, student_outputs, teacher_outputs, p=2):
-        def attention_map(features, p):
-            am = features.pow(p)
-            am = am.mean(1, keepdim=True)
-            am = am / am.sum([2, 3], keepdim=True)
-            return am
-
-        student_am = attention_map(student_outputs, p)
-        teacher_am = attention_map(teacher_outputs, p)
+    def attention_transfer_loss(self, student_features, teacher_features, p):
+        """
+        Computes the Attention Transfer loss between student and teacher features.
+        """
+        student_am = self.attention_map(student_features, p)
+        teacher_am = self.attention_map(teacher_features, p)
         return F.mse_loss(student_am, teacher_am)
 
+    def attention_map(self, fm, p):
+        """
+        Generates an attention map from the given feature map.
+        """
+        am = torch.pow(torch.abs(fm), p)
+        am = torch.sum(am, dim=1, keepdim=True)  # Sum over channels
+        norm = torch.norm(am, p='fro', dim=[2, 3], keepdim=True)  # Normalize over spatial dimensions
+        am = am / (norm + 1e-6)
+        return am
+
+
+
     def validation_step(self, batch, batch_idx):
-        inputs, labels = batch
-        student_outputs, teacher_outputs, _ = self.model_step(batch)
-        loss = self.criterion(student_outputs, labels)
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        acc = self.val_acc(torch.argmax(student_outputs, dim=1), labels)
-        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+        out4_s, feature_s, out4_t, feature_t, labels = self.model_step(batch)
+        
+        # Use out4_s for the classification loss
+        student_loss = self.criterion(out4_s, labels)
+        self.log("val/student_loss", student_loss, on_step=False, on_epoch=True, prog_bar=True)
+        
+        student_acc = self.val_acc(torch.argmax(out4_s, dim=1), labels)
+        self.log("val/student_acc", student_acc, on_step=False, on_epoch=True, prog_bar=True)
+        
+        # Optionally compute and log teacher metrics if evaluating the teacher
+        if self.train_teacher and out4_t is not None:
+            teacher_loss = self.criterion(out4_t, labels)
+            self.log("val/teacher_loss", teacher_loss, on_step=False, on_epoch=True, prog_bar=True)
+            
+            teacher_acc = self.val_acc(torch.argmax(out4_t, dim=1), labels)
+            self.log("val/teacher_acc", teacher_acc, on_step=False, on_epoch=True, prog_bar=True)
+
+        return {"student_loss": student_loss, "student_acc": student_acc}
 
     def test_step(self, batch, batch_idx):
         inputs, labels = batch
-        student_outputs, _, _ = self.model_step(batch)
-        loss = self.criterion(student_outputs, labels)
+        out4_s, _, _ = self.model_step(batch)[:3]  # Adjusted to match the updated forward method signature
+        loss = self.criterion(out4_s, labels)
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        acc = self.test_acc(torch.argmax(student_outputs, dim=1), labels)
+        acc = self.test_acc(torch.argmax(out4_s, dim=1), labels)
         self.log("test/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
-
 
     def on_validation_epoch_end(self):
         acc = self.val_acc.compute()
@@ -169,7 +191,7 @@ class SalmonLitModule(LightningModule):
             
     def configure_optimizers(self):
         # AnalogSGD로 최적화기 설정 변경
-       optimizer = AnalogSGD(
+        optimizer = AnalogSGD(
             list(self.student.parameters()) + list(self.teacher.parameters()), 
             lr=self.hparams.optimizer['lr'],
             weight_decay=self.hparams.optimizer['weight_decay'],
@@ -182,6 +204,7 @@ class SalmonLitModule(LightningModule):
         
         # 스케줄러를 사용하지 않으므로, 최적화기만 반환
         return optimizer
+
 
     
 if __name__ == "__main__":
