@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
-from src.models.components.exp2_model import IntegratedResNet
+from src.models.components.exp2_model import IntegratedResNet, IntegratedResNet_T
 from aihwkit.optim import AnalogSGD, AnalogAdam
 from aihwkit.nn.conversion import convert_to_analog
 from aihwkit.simulator.presets import TikiTakaEcRamPreset, IdealizedPreset, EcRamPreset
@@ -41,25 +41,14 @@ class SalmonLitModule(LightningModule):
         dataset: str,
         epoch: int,
         dataset_path: str,
-        autoaugment: bool = integrated_resnet.num_classes
-#         self.hparams.rpu_config = {
-#             '_target_': integrated_resnet.rpu_config.__class__.__module__ + "." + integrated_resnet.rpu_config.__class__.__qualname__,
-            # Add additional properties of rpu_config as needed
-#         }
-        # Initialize metrics
-        self.criterion = torch.nn.CrossEntropyLoss()
-        self.train_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
-        self.val_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
-        self.test_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
-        self.train_loss = MeanMetric()
-        self.val_loss = MeanMetric()
-        self.test_loss = MeanMetric()
-        self.val_acc_best = MaxMetric()
-        ,
         batchsize: int,
         N_CLASSES: int,
         opt_config : str,
-        sch_config : str
+        sch_config : str,
+        temperature: float,
+        p: float,
+        lambda_kd: float,  # 추가된 파라미터
+        train_teacher : bool
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -70,66 +59,92 @@ class SalmonLitModule(LightningModule):
 
         # Store additional parameters as needed
         self.compile = compile
-
+        self.temperature = temperature
+        self.p = p
+        self.lambda_kd = lambda_kd  # lambda_kd를 클래스 변수로 저장
+        self.train_teacher = train_teacher
         # Optimizer and scheduler settings
         self.optimizer_config = optimizer
+        self.criterion = torch.nn.CrossEntropyLoss()
+        self.train_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
+        self.val_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
+        self.test_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)
+        self.train_loss = MeanMetric()
+        self.val_loss = MeanMetric()
+        self.test_loss = MeanMetric()
+        self.val_acc_best = MaxMetric()
 #         self.hparams.architecture = integrated_resnet.architecture
 #         self.hparams.num_classes
     def forward(self, x):
-        # 단순히 backbone 모델을 사용하여 출력을 계산합니다.
-        out_backbone, _, _, _, _ = self.backbone(x)
-        return out_backbone
+        return self.student(x)
 
     def model_step(self, batch):
         inputs, labels = batch
         student_outputs = self.student(inputs)
-        with torch.no_grad():
-            teacher_outputs = self.teacher(inputs)
+        teacher_outputs = self.teacher(inputs) if self.hparams.train_teacher else None
         return student_outputs, teacher_outputs, labels
 
     def training_step(self, batch, batch_idx):
-        student_outputs, teacher_outputs, labels = self.model_step(batch)
-        loss = self.calculate_loss(student_outputs, teacher_outputs, labels)
-        self.log("train_loss", loss)
-        return loss
+        inputs, labels = batch
+        student_outputs, teacher_outputs, _ = self.model_step(batch)
 
-    def calculate_loss(self, student_outputs, teacher_outputs, labels):
-        # Cross Entropy Loss for the labels
-        ce_loss = F.cross_entropy(student_outputs, labels)
-        # AT Loss
-        at_loss = self.attention_transfer_loss(student_outputs, teacher_outputs)
-        # Combine losses
-        total_loss = ce_loss + at_loss
+        # Compute the cross-entropy loss for the student model
+        ce_loss_student = self.criterion(student_outputs, labels)
+
+        # Initialize the teacher loss to zero if not training the teacher
+        ce_loss_teacher = 0.0
+        if self.hparams.train_teacher:
+            # Compute the cross-entropy loss for the teacher model, if we are training it
+            ce_loss_teacher = self.criterion(teacher_outputs, labels)
+
+        # Compute the Attention Transfer (AT) loss, if the teacher model is used
+        at_loss = self.attention_transfer_loss(student_outputs, teacher_outputs) if teacher_outputs is not None else 0.0
+
+        # Combine the losses
+        # If train_teacher is True, both the student's and teacher's losses are included
+        # along with the AT loss. If False, only the student's loss and AT loss are considered.
+        total_loss = ce_loss_student + self.hparams.lambda_kd * at_loss + ce_loss_teacher
+
+        # Logging
+        self.log("train/loss_student", ce_loss_student, on_step=False, on_epoch=True, prog_bar=True)
+        if self.hparams.train_teacher:
+            self.log("train/loss_teacher", ce_loss_teacher, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train/loss_at", at_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train/total_loss", total_loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        acc = self.train_acc(torch.argmax(student_outputs, dim=1), labels)
+        self.log("train/acc_student", acc, on_step=False, on_epoch=True, prog_bar=True)
+
+        # To ensure the optimizer applies the gradients, return the total loss
         return total_loss
 
-    def attention_transfer_loss(self, student_outputs, teacher_outputs):
-        student_attention = self.generate_attention_map(student_outputs)
-        teacher_attention = self.generate_attention_map(teacher_outputs).detach()
-        at_loss = F.mse_loss(student_attention, teacher_attention)
-        return at_loss
 
-    def generate_attention_map(self, outputs):
-        attention_map = outputs.pow(2).mean(1).view(outputs.size(0), -1)
-        attention_map = F.normalize(attention_map, p=2, dim=1)
-        return attention_map
+    def attention_transfer_loss(self, student_outputs, teacher_outputs, p=2):
+        def attention_map(features, p):
+            am = features.pow(p)
+            am = am.mean(1, keepdim=True)
+            am = am / am.sum([2, 3], keepdim=True)
+            return am
 
-    def cross_entropy_distillation(self, student_output, teacher_output):
-        log_softmax_outputs = F.log_softmax(student_output / self.temperature, dim=1)
-        softmax_targets = F.softmax(teacher_output / self.temperature, dim=1)
-        return -(log_softmax_outputs * softmax_targets).sum(dim=1).mean()
-
-
-    # Validation step, test step, configure optimizers, etc.
-
+        student_am = attention_map(student_outputs, p)
+        teacher_am = attention_map(teacher_outputs, p)
+        return F.mse_loss(student_am, teacher_am)
 
     def validation_step(self, batch, batch_idx):
-        outputs, labels = self.model_step(batch)
-        loss = self.criterion(outputs, labels)
-        acc = self.val_acc(torch.argmax(outputs, dim=1), labels)
-
+        inputs, labels = batch
+        student_outputs, teacher_outputs, _ = self.model_step(batch)
+        loss = self.criterion(student_outputs, labels)
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val/acc", acc, on_step=False, on_epoch=True)
-        return {"val_loss": loss, "val_acc": acc}
+        acc = self.val_acc(torch.argmax(student_outputs, dim=1), labels)
+        self.log("val/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+
+    def test_step(self, batch, batch_idx):
+        inputs, labels = batch
+        student_outputs, _, _ = self.model_step(batch)
+        loss = self.criterion(student_outputs, labels)
+        self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        acc = self.test_acc(torch.argmax(student_outputs, dim=1), labels)
+        self.log("test/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
 
     def on_validation_epoch_end(self):
@@ -138,19 +153,9 @@ class SalmonLitModule(LightningModule):
         self.log("val/acc_best", self.val_acc_best.compute(), prog_bar=True)
         self.val_acc.reset()
 
-    def test_step(self, batch, batch_idx):
-        outputs, labels = self.model_step(batch)
-        loss = self.criterion(outputs, labels)
-        acc = self.test_acc(torch.argmax(outputs, dim=1), labels)
-
-        self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", acc, on_step=False, on_epoch=True)
-        return {"test_loss": loss, "test_acc": acc}
-
     def on_test_epoch_end(self):
         # 여기서 필요한 추가적인 작업을 수행할 수 있습니다.
         pass
-    
 
     def setup(self, stage: str) -> None:
         """모델의 초기화 및 설정을 위한 메서드."""
@@ -164,12 +169,16 @@ class SalmonLitModule(LightningModule):
             
     def configure_optimizers(self):
         # AnalogSGD로 최적화기 설정 변경
-        optimizer = AnalogSGD(self.backbone.parameters(), lr=self.hparams.optimizer['lr'],
-                            weight_decay=self.hparams.optimizer['weight_decay'],
-                            momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
-                            dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
-                            nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.backbone)
+       optimizer = AnalogSGD(
+            list(self.student.parameters()) + list(self.teacher.parameters()), 
+            lr=self.hparams.optimizer['lr'],
+            weight_decay=self.hparams.optimizer['weight_decay'],
+            momentum=self.hparams.optimizer.get('momentum', 0),
+            dampening=self.hparams.optimizer.get('dampening', 0),
+            nesterov=self.hparams.optimizer.get('nesterov', False)
+        )
+        
+        optimizer.regroup_param_groups(self.student)
         
         # 스케줄러를 사용하지 않으므로, 최적화기만 반환
         return optimizer

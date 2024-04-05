@@ -10,8 +10,8 @@ integrated_resnet:
       _target_: aihwkit.simulator.configs.devices.IdealDevice
 
 integrated_resnet_t:
-  _target_: src.models.components.salmon.IntegratedResNet
-  architecture: "resnet10"
+  _target_: src.models.components.salmon.IntegratedResNet_T
+  architecture: "resnet18"
   num_classes: 10
 
 # Optimizer settings
@@ -35,5 +35,7 @@ batchsize: 128
 N_CLASSES: 10
 opt_config : "AnalogSGD"
 sch_config : "off-schedule"
-
+train_teacher : True
+p : 0.5
+lamda_kd  : 0.5
 
