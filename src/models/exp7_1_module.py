@@ -50,8 +50,7 @@ class SalmonLitModule(LightningModule):
         opt_config : str,
         sch_config : str,
         sd_config : str,
-        FC_Digit : str,
-        scheduler: dict
+        FC_Digit : str
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -160,8 +159,7 @@ class SalmonLitModule(LightningModule):
 
             # Feature distillation for subsequent layers
             if idx != 0:
-                adapted_feature = self.adaptation_layers[idx-1](feature)
-                loss += torch.dist(adapted_feature, teacher_feature) * self.feature_loss_coefficient
+                loss += torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
 
         # Metrics update and logging
         self.train_acc(torch.argmax(outputs[0], dim=1), labels)
@@ -238,35 +236,16 @@ class SalmonLitModule(LightningModule):
             # 예: self.backbone = self.load_pretrained_backbone()
             
     def configure_optimizers(self):
-    # 각 모듈의 매개변수를 최적화기에 전달
-        parameters = list(self.features.parameters()) + \
-                    list(self.classifier.parameters()) + \
-                    list(self.attention1.parameters()) + \
-                    list(self.attention2.parameters()) + \
-                    list(self.attention3.parameters())
-        
-        # AnalogSGD 최적화기 설정
-        optimizer = AnalogSGD(parameters, lr=self.hparams.optimizer['lr'],
+        # AnalogSGD로 최적화기 설정 변경
+        optimizer = AnalogSGD(self.parameters(), lr=self.hparams.optimizer['lr'],
                             weight_decay=self.hparams.optimizer['weight_decay'],
-                            momentum=self.hparams.optimizer.get('momentum', 0),
-                            dampening=self.hparams.optimizer.get('dampening', 0),
-                            nesterov=self.hparams.optimizer.get('nesterov', False))
-        optimizer.regroup_param_groups(self.features, self.classifier)
-        # 스케줄러 설정
-        if isinstance(self.hparams.scheduler, functools.partial):
-            scheduler_args = self.hparams.scheduler.args
-            scheduler_kwargs = self.hparams.scheduler.keywords
-            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, *scheduler_args, **scheduler_kwargs)
-        else:
-            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **self.hparams.scheduler)
+                            momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
+                            dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
+                            nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
+        optimizer.regroup_param_groups(self.parameters())
         
-        scheduler_config = {
-            'scheduler': scheduler,
-            'interval': 'epoch',
-            'frequency': 1
-        }
+        return optimizer
 
-        return [optimizer], [scheduler_config]
 
 
     

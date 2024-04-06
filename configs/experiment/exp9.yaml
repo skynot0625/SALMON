@@ -33,7 +33,7 @@ data:
 logger:
   wandb:
     tags: ${tags}
-    group: "Exp8-Analog-Detach-BD-Cifar10-SD"
+    group: "Exp9-Analog-Detach-BD-Cifar10-SD"
   aim:
     experiment: "8"
 

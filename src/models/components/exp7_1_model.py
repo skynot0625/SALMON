@@ -479,9 +479,9 @@ class ResNetFeatures(nn.Module):
         x2 = self.layer2(x1)
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
-        out_features = self.scala4(x4)
-
-        return out_features, x1, x2, x3
+        out4_feature = self.scala4(x4).view(x4.size(0), -1)
+        
+        return out4_feature, x1, x2, x3
 
 class ResNetClassifier(nn.Module):
     def __init__(self, in_features, num_classes=10):
@@ -489,7 +489,6 @@ class ResNetClassifier(nn.Module):
         self.fc = nn.Linear(in_features, num_classes)
     
     def forward(self, x):
-        x = x.view(x.size(0), -1)  # Flatten the features
         x = self.fc(x)
         return x
     
@@ -537,55 +536,21 @@ def create_resnet_classifier(in_features, num_classes=10):
     """
     return ResNetClassifier(in_features, num_classes)
 
-class CompleteResNet(nn.Module):
-    def __init__(self, architecture, num_classes, rpu_config_features, rpu_config_classifier):
-        super(CompleteResNet, self).__init__()
-        # ResNet 특성 추출기 및 분류기 생성
-        features = create_resnet_features(architecture=architecture)
-        classifier = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
-        
-        # 각각에 대해 convert_to_analog 처리 적용
-        self.features = convert_to_analog(features, rpu_config_features)
-        self.classifier = convert_to_analog(classifier, rpu_config_classifier)
-
-    def forward(self, x):
-        # 특성 추출
-        out_features, x1, x2, x3 = self.features(x)
-        # 최종 분류
-        out4 = self.classifier(out_features)
-        return out4, out_features, x1, x2, x3
-    
-class Backbone(nn.Module):
-    def __init__(self, architecture="resnet10", num_classes=10, rpu_config_features=None, rpu_config_classifier=None):
-        super(Backbone, self).__init__()
-        # 특성 추출기 생성
-        features_model = create_resnet_features(architecture=architecture)
-        # 분류기 생성
-        classifier_model = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
-        
-        # convert_to_analog 처리 적용
-        self.features = convert_to_analog(features_model, rpu_config_features) if rpu_config_features else features_model
-        self.classifier = convert_to_analog(classifier_model, rpu_config_classifier) if rpu_config_classifier else classifier_model
-
-    def forward(self, x):
-        # 특성 추출 및 중간 레이어 출력
-        out_features, x1, x2, x3 = self.features(x)
-        # 최종 분류
-        out4 = self.classifier(out_features)
-        return out4, out_features, x1, x2, x3    
     
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10, rpu_config=None):
         super(IntegratedResNet, self).__init__()
-        
-        # 각각에 대해 convert_to_analog 처리 적용 전, 특성 추출기 및 분류기 생성
-        features_model = create_resnet_features(architecture=architecture)
-        classifier_model = create_resnet_classifier(in_features=512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion, num_classes=num_classes)
-
-        # convert_to_analog 처리 적용
+        # ResNetFeatures와 ResNetClassifier를 생성합니다.
+        # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.
+        self.features = create_resnet_features(architecture=architecture)
+        self.features = convert_to_analog(self.features, rpu_config=rpu_config)
+        # 인풋 피처의 크기를 정확히 계산하는 것이 중요합니다. 여기서는 예시로 512 * block.expansion을 사용합니다.
+        # 실제 사용 시, ResNetFeatures의 마지막 출력 크기를 기반으로 설정해야 합니다.
+        block_type_1 = BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck
+        in_features = 512 * block_type_1.expansion  # 이 값은 실제 출력 특성 맵의 크기에 따라 달라질 수 있습니다.
+        self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
         rpu_config_float = FloatingPointRPUConfig()
-        self.features = convert_to_analog(features_model, rpu_config)
-        self.classifier = convert_to_analog(classifier_model, rpu_config_float)
+        self.classifier = convert_to_analog(self.classifier, rpu_config=rpu_config_float)
 
         # 어텐션 모듈들 생성
         block_type = 'BasicBlock' if architecture in ["resnet18", "resnet34", "resnet10"] else 'Bottleneck'

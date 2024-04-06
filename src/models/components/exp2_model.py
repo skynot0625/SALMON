@@ -15,7 +15,7 @@ import torchvision.datasets as datasets
 import torch.utils.checkpoint as checkpoint
 from aihwkit.nn import AnalogConv2d, AnalogLinear, AnalogSequential
 from aihwkit.nn.conversion import convert_to_analog
-
+import torchvision.models as models
 # 필요한 경우 추가 경로를 포함
 sys.path.append('/path/to/src/aihwkit') 
 
@@ -315,16 +315,45 @@ class IntegratedResNet(nn.Module):
         return out4, feature, x4
 
 class IntegratedResNet_T(nn.Module):
-    def __init__(self, architecture="resnet10", num_classes=10):
-        super(IntegratedResNet_T, self).__init__()  # 클래스 이름 수정
-        self.backbone = create_resnet(architecture, num_classes)
-#         self.architecture = architecture
-#         self.num_classes = num_classes
-#         self.rpu_config = rpu_config
-        self.backbone = create_resnet(architecture, num_classes)
-        
-    def forward(self, x):
-        # ResNet 백본 통과
-        out4, feature, x4, x1, x2, x3 = self.backbone(x)
+    def __init__(self, architecture="resnet18", num_classes=10):
+        super(IntegratedResNet_T, self).__init__()
+        # 사전 훈련된 모델을 로드합니다.
+        if architecture == "resnet18":
+            self.backbone = models.resnet18(pretrained=True)
+        elif architecture == "resnet34":
+            self.backbone = models.resnet34(pretrained=True)
+        elif architecture == "resnet50":
+            self.backbone = models.resnet50(pretrained=True)
+        else:
+            raise ValueError(f"Unsupported architecture: {architecture}")
 
-        return out4, feature, x4
+        # 사전 훈련된 모델의 마지막 FC 레이어를 제거합니다.
+        self.backbone.fc = nn.Identity()
+        
+        # 새로운 FC 레이어를 클래스 초기화 시 정의합니다.
+        # 주의: self.backbone.fc.in_features는 아직 알 수 없기 때문에, 임시 값을 사용합니다.
+        self.new_fc = nn.Linear(512, num_classes)  # 512는 예시 값입니다. 실제 값은 아래에서 수정됩니다.
+
+    def forward(self, x):
+        # ResNet의 각 레이어를 통과합니다.
+        x = self.backbone.conv1(x)
+        x = self.backbone.bn1(x)
+        x = self.backbone.relu(x)
+        x = self.backbone.maxpool(x)
+
+        x1 = self.backbone.layer1(x)
+        x2 = self.backbone.layer2(x1)
+        x3 = self.backbone.layer3(x2)
+        x4 = self.backbone.layer4(x3)
+
+        # 마지막 레이어의 출력을 평균 풀링하고 플래튼합니다.
+        feature = self.backbone.avgpool(x4)
+        feature = torch.flatten(feature, 1)
+
+        # 새로운 FC 레이어의 in_features를 실제 feature 크기에 맞게 조정합니다.
+        if self.new_fc.in_features != feature.shape[1]:
+            self.new_fc = nn.Linear(feature.shape[1], self.new_fc.out_features).to(feature.device)
+        
+        out4 = self.new_fc(feature)
+
+        return out4, feature, x4, x1, x2, x3

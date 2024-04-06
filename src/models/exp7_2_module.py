@@ -59,7 +59,6 @@ class SalmonLitModule(LightningModule):
 
         # Optimizer settings (scheduler settings could be added similarly)
         self.optimizer_config = optimizer
-        self.optimizer_config = scheduler
         # Initialize metrics
         self.criterion = torch.nn.CrossEntropyLoss()
         self.train_acc = Accuracy(task="multiclass", num_classes=N_CLASSES)

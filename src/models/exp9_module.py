@@ -80,31 +80,25 @@ class SalmonLitModule(LightningModule):
 
     def model_step(self, batch):
         inputs, labels = batch
-        # Extracting outputs for student and teacher models
-        out4_s, feature_s, _ = self.student(inputs)  # Adjusted to match the forward method signature
-        if self.train_teacher:
-            out4_t, feature_t, _ = self.teacher(inputs)  # Adjusted to match the forward method signature
-        else:
-            out4_t, feature_t = None, None
-        return out4_s, feature_s, out4_t, feature_t, labels
+        # 학생 모델에서 반환된 모든 값을 처리합니다.
+        out4_s, feature_s, x4_s, _, _, _ = self.student(inputs)  # 추가된 반환 값을 무시합니다.
+            # 교사 모델에서 반환된 모든 값을 처리합니다.
+        out4_t, feature_t, x4_t, _, _, _ = self.teacher(inputs)  # 추가된 반환 값을 무시합니다.
+
+        return out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels
 
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
         # Extract outputs and the last feature map (before pooling) from student and teacher networks
-        out4_s, _, features_s = self.student(inputs)  # Use features_s as the last feature map (x4)
-        if self.train_teacher:
-            out4_t, _, features_t = self.teacher(inputs)  # Use features_t as the last feature map (x4)
-        else:
-            out4_t, features_t = None, None
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, _ = self.model_step(batch)
 
         # Compute the cross-entropy loss for the student's output
         ce_loss = self.criterion(out4_s, labels)
 
         # Initialize AT loss
         at_loss = 0.0
-        if self.train_teacher:
-            # Compute the AT loss between student and teacher features
-            at_loss = self.attention_transfer_loss(features_s, features_t, self.p)
+            # Compute the AT loss between student and teacher last feature maps (x4)
+        at_loss = self.attention_transfer_loss(x4_s, x4_t, self.p)
 
         # Combine the cross-entropy loss and the AT loss
         total_loss = ce_loss + self.lambda_kd * at_loss
@@ -116,7 +110,7 @@ class SalmonLitModule(LightningModule):
 
         # Compute and log the accuracy
         pred = torch.argmax(out4_s, dim=1)
-        acc = self.accuracy(pred, labels)
+        acc = self.train_acc(pred, labels)  # 수정된 부분
         self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
 
         return total_loss
@@ -134,39 +128,42 @@ class SalmonLitModule(LightningModule):
         Generates an attention map from the given feature map.
         """
         am = torch.pow(torch.abs(fm), p)
-        am = torch.sum(am, dim=1, keepdim=True)  # Sum over channels
+        am = torch.sum(am, dim=1, keepdim=True)  #Sum  over channels
         norm = torch.norm(am, p='fro', dim=[2, 3], keepdim=True)  # Normalize over spatial dimensions
         am = am / (norm + 1e-6)
         return am
 
-
-
     def validation_step(self, batch, batch_idx):
-        out4_s, feature_s, out4_t, feature_t, labels = self.model_step(batch)
-        
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels = self.model_step(batch)
+
         # Use out4_s for the classification loss
         student_loss = self.criterion(out4_s, labels)
         self.log("val/student_loss", student_loss, on_step=False, on_epoch=True, prog_bar=True)
-        
-        student_acc = self.val_acc(torch.argmax(out4_s, dim=1), labels)
-        self.log("val/student_acc", student_acc, on_step=False, on_epoch=True, prog_bar=True)
-        
-        # Optionally compute and log teacher metrics if evaluating the teacher
+
+        # Compute and log the accuracy
+        pred = torch.argmax(out4_s, dim=1)
+        acc = self.val_acc(pred, labels)  # 수정된 부분
+        self.log("val/student_acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+
         if self.train_teacher and out4_t is not None:
             teacher_loss = self.criterion(out4_t, labels)
             self.log("val/teacher_loss", teacher_loss, on_step=False, on_epoch=True, prog_bar=True)
-            
-            teacher_acc = self.val_acc(torch.argmax(out4_t, dim=1), labels)
+            teacher_acc = self.val_acc(torch.argmax(out4_t, dim=1), labels)  # 수정된 부분
             self.log("val/teacher_acc", teacher_acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        return {"student_loss": student_loss, "student_acc": student_acc}
+        return {"student_loss": student_loss, "student_acc": acc}
 
     def test_step(self, batch, batch_idx):
         inputs, labels = batch
-        out4_s, _, _ = self.model_step(batch)[:3]  # Adjusted to match the updated forward method signature
+        out4_s, _, _ = self.model_step(batch)[:3]
+
+        # Compute the classification loss
         loss = self.criterion(out4_s, labels)
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        acc = self.test_acc(torch.argmax(out4_s, dim=1), labels)
+
+        # Compute and log the accuracy
+        pred = torch.argmax(out4_s, dim=1)
+        acc = self.test_acc(pred, labels)  # 수정된 부분
         self.log("test/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self):
