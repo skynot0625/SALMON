@@ -132,16 +132,16 @@ class SalmonLitModule(LightningModule):
             # 훈련 단계에서만 특정 작업을 수행합니다.
             # 예: self.backbone = self.load_pretrained_backbone()
             
-        def configure_optimizers(self):
+    def configure_optimizers(self):
             # AnalogSGD로 최적화기 설정 변경
-            optimizer = AnalogSGD(self.parameters(), lr=self.hparams.optimizer['lr'],
+        optimizer = AnalogSGD(self.parameters(), lr=self.hparams.optimizer['lr'],
                                 weight_decay=self.hparams.optimizer['weight_decay'],
                                 momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
                                 dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
                                 nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-            optimizer.regroup_param_groups(self.parameters())
+        optimizer.regroup_param_groups(self.parameters())
             
-            return optimizer
+        return optimizer
 
     
 if __name__ == "__main__":
