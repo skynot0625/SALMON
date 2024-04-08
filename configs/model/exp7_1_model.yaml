@@ -7,6 +7,18 @@ integrated_resnet:
   num_classes: 10
   rpu_config:
     _target_: aihwkit.simulator.presets.IdealizedPreset
+    device:
+      _target_: aihwkit.simulator.presets.devices.IdealizedPresetDevice
+      dw_min: 0.015625
+      dw_min_dtod: 0.0  # 수정됨
+      dw_min_std: 0.0   # 수정됨
+      up_down: 0.0
+      up_down_dtod: 0.0  # 이미 0
+      w_max: 1.0
+      w_min: -1.0
+      w_max_dtod: 0.0   # 수정됨
+      w_min_dtod: 0.0   # 수정됨
+
     
 # Optimizer settings
 optimizer:
