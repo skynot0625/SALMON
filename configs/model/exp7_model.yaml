@@ -5,8 +5,26 @@ integrated_resnet:
   _target_: src.models.components.exp7_model.IntegratedResNet
   architecture: "resnet18"
   num_classes: 10
-  rpu_config:
-    _target_: aihwkit.simulator.presets.IdealizedPreset
+    device:
+      _target_: aihwkit.simulator.presets.devices.IdealizedPresetDevice
+      dw_min: 0.015625
+      dw_min_dtod: 0.0  # 수정됨
+      dw_min_std: 0.0   # 수정됨
+      up_down: 0.0
+      up_down_dtod: 0.0  # 이미 0
+      w_max: 1.0
+      w_min: -1.0
+      w_max_dtod: 0.0   # 수정됨
+      w_min_dtod: 0.0   # 수정됨
+
+# 4비트: 0.125
+# 5비트: 0.0625
+# 6비트: 0.03125
+# 7비트: 0.015625
+# 8비트: 0.0078125
+# 9비트: 0.00390625
+# 10비트: 0.001953125
+
     
 # Optimizer settings
 optimizer:
@@ -18,11 +36,6 @@ optimizer:
   # dampening: 0  # 선택적
   # nesterov: False  # 선택적
 
-scheduler:
-  _target_: torch.optim.lr_scheduler.StepLR
-  _partial_: true
-  step_size: 80
-  gamma: 0.1
 
 compile: false
 
