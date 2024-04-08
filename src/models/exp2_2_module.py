@@ -150,7 +150,7 @@ class SalmonLitModule(LightningModule):
                             momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
                             dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
                             nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.backbone)
+        optimizer.regroup_param_groups(self.paramters())
         
         # 스케줄러를 사용하지 않으므로, 최적화기만 반환
         return optimizer
