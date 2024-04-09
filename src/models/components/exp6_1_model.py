@@ -259,7 +259,6 @@ class ResNetBackbone(nn.Module):
             self.fc4 = nn.Linear(out4_feature.size(1), 10).to(out4_feature.device)
             
         out4 = self.fc4(out4_feature)
-        out4 = self.fc4(out4_feature)
         
         return out4, out4_feature, x1, x2, x3
 

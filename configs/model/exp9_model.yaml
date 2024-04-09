@@ -36,6 +36,6 @@ N_CLASSES: 10
 opt_config : "AnalogSGD"
 sch_config : "off-schedule"
 train_teacher : True
-p : 0.5
-lambda_kd : 0.5
+p : 2.0
+lambda_kd : 1.0
 

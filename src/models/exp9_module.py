@@ -133,7 +133,7 @@ class SalmonLitModule(LightningModule):
         return am
 
     def validation_step(self, batch, batch_idx):
-        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels = self.model_step(batch)
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, _, _, _, _, _, _ = self.model_step(batch)
 
         # Use out4_s for the classification loss
         student_loss = self.criterion(out4_s, labels)
@@ -141,20 +141,19 @@ class SalmonLitModule(LightningModule):
 
         # Compute and log the accuracy
         pred = torch.argmax(out4_s, dim=1)
-        acc = self.val_acc(pred, labels)  # 수정된 부분
+        acc = self.val_acc(pred, labels)
         self.log("val/student_acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        if self.train_teacher and out4_t is not None:
+        if self.train_teacher:
             teacher_loss = self.criterion(out4_t, labels)
             self.log("val/teacher_loss", teacher_loss, on_step=False, on_epoch=True, prog_bar=True)
-            teacher_acc = self.val_acc(torch.argmax(out4_t, dim=1), labels)  # 수정된 부분
+            teacher_acc = self.val_acc(torch.argmax(out4_t, dim=1), labels)
             self.log("val/teacher_acc", teacher_acc, on_step=False, on_epoch=True, prog_bar=True)
 
         return {"student_loss": student_loss, "student_acc": acc}
 
     def test_step(self, batch, batch_idx):
-        inputs, labels = batch
-        out4_s, _, _ = self.model_step(batch)[:3]
+        out4_s, _, _, _, _, _, _, _, _, _, _, _, _ = self.model_step(batch)
 
         # Compute the classification loss
         loss = self.criterion(out4_s, labels)
@@ -162,7 +161,7 @@ class SalmonLitModule(LightningModule):
 
         # Compute and log the accuracy
         pred = torch.argmax(out4_s, dim=1)
-        acc = self.test_acc(pred, labels)  # 수정된 부분
+        acc = self.test_acc(pred, labels)
         self.log("test/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
     def on_validation_epoch_end(self):
@@ -170,6 +169,7 @@ class SalmonLitModule(LightningModule):
         self.val_acc_best.update(acc)
         self.log("val/acc_best", self.val_acc_best.compute(), prog_bar=True)
         self.val_acc.reset()
+
 
     def on_test_epoch_end(self):
         # 여기서 필요한 추가적인 작업을 수행할 수 있습니다.
