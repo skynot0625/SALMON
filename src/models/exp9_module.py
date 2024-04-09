@@ -55,7 +55,7 @@ class SalmonLitModule(LightningModule):
 
         # Initialize only the backbone component from the integrated_resnet
         self.student = integrated_resnet.backbone
-        self.teacher = integrated_resnet_t.backbone
+        self.teacher = integrated_resnet_t
 
         # Store additional parameters as needed
         self.compile = compile
@@ -133,7 +133,8 @@ class SalmonLitModule(LightningModule):
         return am
 
     def validation_step(self, batch, batch_idx):
-        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, _, _, _, _, _, _ = self.model_step(batch)
+        # Correctly unpack values returned by model_step
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t = self.model_step(batch)
 
         # Use out4_s for the classification loss
         student_loss = self.criterion(out4_s, labels)
@@ -145,6 +146,7 @@ class SalmonLitModule(LightningModule):
         self.log("val/student_acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
         if self.train_teacher:
+            # If training the teacher as well, compute and log its loss and accuracy
             teacher_loss = self.criterion(out4_t, labels)
             self.log("val/teacher_loss", teacher_loss, on_step=False, on_epoch=True, prog_bar=True)
             teacher_acc = self.val_acc(torch.argmax(out4_t, dim=1), labels)
@@ -153,7 +155,8 @@ class SalmonLitModule(LightningModule):
         return {"student_loss": student_loss, "student_acc": acc}
 
     def test_step(self, batch, batch_idx):
-        out4_s, _, _, _, _, _, _, _, _, _, _, _, _ = self.model_step(batch)
+        # Correctly unpack values returned by model_step for the test scenario
+        out4_s, _, _, _, _, _, labels, _, _, _, _, _, _ = self.model_step(batch)
 
         # Compute the classification loss
         loss = self.criterion(out4_s, labels)
@@ -163,6 +166,7 @@ class SalmonLitModule(LightningModule):
         pred = torch.argmax(out4_s, dim=1)
         acc = self.test_acc(pred, labels)
         self.log("test/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
+
 
     def on_validation_epoch_end(self):
         acc = self.val_acc.compute()

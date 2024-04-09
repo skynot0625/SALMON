@@ -75,7 +75,7 @@ class SalmonLitModule(LightningModule):
         
     def forward(self, x):
         # 단순히 backbone 모델을 사용하여 출력을 계산합니다.
-        out_backbone, _, _, _, _ = self.backbone(x)
+        out_backbone, _, _, _, _ ,_ = self.backbone(x)
         return out_backbone
 
     def model_step(self, batch):
@@ -150,7 +150,7 @@ class SalmonLitModule(LightningModule):
                             momentum=self.hparams.optimizer.get('momentum', 0),  # momentum 추가, 기본값은 0으로 설정
                             dampening=self.hparams.optimizer.get('dampening', 0),  # dampening 추가, 기본값은 0으로 설정
                             nesterov=self.hparams.optimizer.get('nesterov', False))  # nesterov 추가, 기본값은 False로 설정
-        optimizer.regroup_param_groups(self.paramters())
+        optimizer.regroup_param_groups(self.parameters())
         
         # 스케줄러를 사용하지 않으므로, 최적화기만 반환
         return optimizer
