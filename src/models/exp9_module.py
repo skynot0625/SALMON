@@ -81,24 +81,23 @@ class SalmonLitModule(LightningModule):
     def model_step(self, batch):
         inputs, labels = batch
         # 학생 모델에서 반환된 모든 값을 처리합니다.
-        out4_s, feature_s, x4_s, _, _, _ = self.student(inputs)  # 추가된 반환 값을 무시합니다.
-            # 교사 모델에서 반환된 모든 값을 처리합니다.
-        out4_t, feature_t, x4_t, _, _, _ = self.teacher(inputs)  # 추가된 반환 값을 무시합니다.
+        out4_s, feature_s, x4_s, x1_s, x2_s, x3_s = self.student(inputs)
+        # 교사 모델에서 반환된 모든 값을 처리합니다.
+        out4_t, feature_t, x4_t, x1_t, x2_t, x3_t = self.teacher(inputs)
 
-        return out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels
+        return out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t
+
 
     def training_step(self, batch, batch_idx):
-        inputs, labels = batch
-        # Extract outputs and the last feature map (before pooling) from student and teacher networks
-        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, _ = self.model_step(batch)
+    # Extract outputs and the last feature map (before pooling) from student and teacher networks
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t = self.model_step(batch)
 
         # Compute the cross-entropy loss for the student's output
         ce_loss = self.criterion(out4_s, labels)
 
-        # Initialize AT loss
-        at_loss = 0.0
-            # Compute the AT loss between student and teacher last feature maps (x4)
-        at_loss = self.attention_transfer_loss(x4_s, x4_t, self.p)
+        # Initialize AT loss for all layers
+        at_loss = sum([self.attention_transfer_loss(student_feature, teacher_feature, self.p) 
+                    for student_feature, teacher_feature in zip([x1_s, x2_s, x3_s, x4_s], [x1_t, x2_t, x3_t, x4_t])])
 
         # Combine the cross-entropy loss and the AT loss
         total_loss = ce_loss + self.lambda_kd * at_loss
@@ -110,7 +109,7 @@ class SalmonLitModule(LightningModule):
 
         # Compute and log the accuracy
         pred = torch.argmax(out4_s, dim=1)
-        acc = self.train_acc(pred, labels)  # 수정된 부분
+        acc = self.train_acc(pred, labels)
         self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
 
         return total_loss
