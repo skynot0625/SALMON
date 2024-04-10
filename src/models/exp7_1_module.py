@@ -100,8 +100,8 @@ class SalmonLitModule(LightningModule):
 
     def forward(self, x):
         # Forward pass through the 
-        x = self.input(x)
-        feature_backbone, x1, x2, x3 = self.features(x)
+        input_1 = self.input(x)
+        feature_backbone, x1, x2, x3 = self.features(input_1)
         out_backbone = self.classifier(feature_backbone)
 
         # Forward pass through the attention mechanisms
@@ -121,8 +121,8 @@ class SalmonLitModule(LightningModule):
         inputs = inputs.to(self.device)
 
         # Forward pass for features and outputs
-        inputs = self.input(inputs)
-        feature_backbone, x1, x2, x3 = self.features(inputs)
+        input_1 = self.input(inputs)
+        feature_backbone, x1, x2, x3 = self.features(input_1)
 
         # Classification step
         out_backbone = self.classifier(feature_backbone)

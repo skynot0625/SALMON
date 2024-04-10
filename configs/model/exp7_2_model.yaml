@@ -2,7 +2,7 @@ _target_: src.models.exp7_2_module.SalmonLitModule
 
 # Define the IntegratedResNet configuration
 integrated_resnet:
-  _target_: src.models.components.exp7_model.IntegratedResNet
+  _target_: src.models.components.exp7_2_model.IntegratedResNet
   architecture: "resnet18"
   num_classes: 10
   rpu_config:
