@@ -1,12 +1,34 @@
-_target_: src.models.exp4_2_module.SalmonLitModule
+_target_: src.models.exp7_1_module.SalmonLitModule
 
 # Define the IntegratedResNet configuration
 integrated_resnet:
-  _target_: src.models.components.exp7_1_model.IntegratedResNet
+  _target_: src.models.components.exp7_3_model.IntegratedResNet
   architecture: "resnet18"
   num_classes: 10
   rpu_config:
     _target_: aihwkit.simulator.presets.IdealizedPreset
+    device:
+      _target_: aihwkit.simulator.presets.devices.IdealizedPresetDevice
+      dw_min: 0.015625
+      dw_min_dtod: 0.0  # 수정됨
+      dw_min_std: 0.0   # 수정됨
+      up_down: 0.0
+      up_down_dtod: 0.0  # 이미 0
+      w_max: 1.0
+      w_min: -1.0
+      w_max_dtod: 0.0   # 수정됨
+      w_min_dtod: 0.0   # 수정됨
+# 4비트: 0.125
+# 5비트: 0.0625
+# 6비트: 0.03125
+# 7비트: 0.015625
+# 8비트: 0.0078125
+# 9비트: 0.00390625
+# 10비트: 0.001953125
+# 11비트: 0.0009765625
+# 12비트: 0.00048828125
+# 13비트: 0.000244140625
+# 14비트: 0.0001220703125
     
 # Optimizer settings
 optimizer:
@@ -36,3 +58,5 @@ alpha: 0.3
 p_max: 10000
 opt_config : "AnalogSGD"
 sch_config : "off-schedule"
+sd_config : "true"
+FC_Digit : "true"
