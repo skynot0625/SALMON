@@ -397,15 +397,28 @@ def create_resnet(architecture="resnet34", num_classes=10):
 
     return model
 
+class ResNetInput(nn.Module):
+    def __init__(self, in_channels=3, base_channels=64, norm_layer=None):
+        super(ResNetInput, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        self.conv1 = nn.Conv2d(in_channels, base_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = norm_layer(base_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        return x
+    
 class ResNetFeatures(nn.Module):
     def __init__(self, block, layers, zero_init_residual=False, groups=1, 
-                 width_per_group=64, replace_stride_with_dilation=None, norm_layer=None):
+                 width_per_group=64, replace_stride_with_dilation=None, norm_layer=None, base_channels=64):
         super(ResNetFeatures, self).__init__()
-        self.inplanes = 64
+        self.inplanes = base_channels  # 기본 채널 설정
         self.dilation = 1
         if replace_stride_with_dilation is None:
-            # Each element in the tuple indicates if we should replace
-            # the 2x2 stride with a dilated convolution instead
             self.replace_stride_with_dilation = [False, False, False]
         else:
             self.replace_stride_with_dilation = replace_stride_with_dilation
@@ -413,10 +426,6 @@ class ResNetFeatures(nn.Module):
         self.groups = groups
         self.base_width = width_per_group
         self._norm_layer = norm_layer if norm_layer else nn.BatchNorm2d
-
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = self._norm_layer(self.inplanes)
-        self.relu = nn.ReLU(inplace=True)
         
         # Creating layers
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -426,8 +435,7 @@ class ResNetFeatures(nn.Module):
                                        dilate=self.replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=self.replace_stride_with_dilation[2])
-        
-        self.scala4 = nn.AvgPool2d(4, 4)  # Assuming ScalaNet is defined elsewhere
+        self.scala4 = nn.AvgPool2d(4, 4)  # 평균 풀링 레이어  # Assuming ScalaNet is defined elsewhere
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
@@ -452,10 +460,6 @@ class ResNetFeatures(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-
         x1 = self.layer1(x)
         x2 = self.layer2(x1)
         x3 = self.layer3(x2)
@@ -518,38 +522,29 @@ def create_resnet_classifier(in_features, num_classes=10):
     """
     return ResNetClassifier(in_features, num_classes)
 
-class ResNetBackboneModule(nn.Module):
-    def __init__(self, architecture="resnet34", num_classes=10):
-        super(ResNetBackboneModule, self).__init__()
-        # ResNet 특성 추출기 생성
-        self.features = create_resnet_features(architecture=architecture)
-        # ResNet 분류기 생성
-        in_features = 512 * (BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck).expansion
-        self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
-
-    def forward(self, x):
-        x = self.features(x)  # 특성 추출
-        x = self.classifier(x)  # 분류
-        return x
-
-def create_resnet_Module(architecture="resnet34", num_classes=10):
-    """Create a ResNet model.
+def create_input_module(in_channels=3, base_channels=64, norm_layer=None):
+    """Create an input module for ResNet.
 
     Args:
-        architecture (str): Which ResNet architecture to create (options: "resnet18", "resnet34", "resnet50", "resnet10").
-        num_classes (int): Number of output classes.
+        in_channels (int): Number of input channels.
+        base_channels (int): Number of output channels of the first convolution.
+        norm_layer (nn.Module): Normalization layer to use.
 
     Returns:
-        ResNetBackbone: The created ResNet model.
+        ResNetInput: The ResNet input module.
     """
-    model = ResNetBackboneModule(architecture=architecture, num_classes=num_classes)
-    return model
+    if norm_layer is None:
+        norm_layer = nn.BatchNorm2d
+    return ResNetInput(in_channels=in_channels, base_channels=base_channels, norm_layer=norm_layer)
 
 class IntegratedResNet(nn.Module):
     def __init__(self, architecture="resnet10", num_classes=10, rpu_config=None):
         super(IntegratedResNet, self).__init__()
         # ResNetFeatures와 ResNetClassifier를 생성합니다.
-        # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.
+        # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.'
+        rpu_config_float = FloatingPointRPUConfig()
+        self.input_module = create_input_module()
+        self.input_module = convert_to_analog(self.input_module, rpu_config=rpu_config_float)
         self.features = create_resnet_features(architecture=architecture)
         self.features = convert_to_analog(self.features, rpu_config=rpu_config)
         # 인풋 피처의 크기를 정확히 계산하는 것이 중요합니다. 여기서는 예시로 512 * block.expansion을 사용합니다.
@@ -557,10 +552,10 @@ class IntegratedResNet(nn.Module):
         block_type = BasicBlock if architecture in ["resnet18", "resnet34", "resnet10"] else Bottleneck
         in_features = 512 * block_type.expansion  # 이 값은 실제 출력 특성 맵의 크기에 따라 달라질 수 있습니다.
         self.classifier = create_resnet_classifier(in_features=in_features, num_classes=num_classes)
-        rpu_config_float = FloatingPointRPUConfig()
         self.classifier = convert_to_analog(self.classifier, rpu_config=rpu_config_float)
     
     def forward(self, x):
-        feature, x1, x2, x3 = self.features(x)
-        out4 = self.classifier(feature)
-        return out4
+        x = self.input_module(x)  # 입력 처리
+        feature, x1, x2, x3 = self.features(x)  # 특성 추출
+        out = self.classifier(feature)  # 분류
+        return out
