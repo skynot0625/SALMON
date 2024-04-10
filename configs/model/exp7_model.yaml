@@ -9,7 +9,7 @@ integrated_resnet:
     _target_: aihwkit.simulator.presets.IdealizedPreset
     device:
       _target_: aihwkit.simulator.presets.devices.IdealizedPresetDevice
-      dw_min: 0.015625
+      dw_min: 0.01562
       dw_min_dtod: 0.0  # 수정됨
       dw_min_std: 0.0   # 수정됨
       up_down: 0.0
@@ -27,6 +27,10 @@ integrated_resnet:
 # 8비트: 0.0078125
 # 9비트: 0.00390625
 # 10비트: 0.001953125
+# 11비트: 0.0009765625
+# 12비트: 0.00048828125
+# 13비트: 0.000244140625
+# 14비트: 0.0001220703125
 
     
 # Optimizer settings
