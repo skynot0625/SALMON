@@ -58,6 +58,7 @@ class SalmonLitModule(LightningModule):
         # Initialize IntegratedResNet with parameters from integrated_resnet_config
         
         # 모듈 구성요소 설정
+        self.input = integrated_resnet.input_module
         self.features = integrated_resnet.features
         self.classifier = integrated_resnet.classifier
         self.attention1 = integrated_resnet.attention1
@@ -98,7 +99,8 @@ class SalmonLitModule(LightningModule):
             self.adaptation_layers.append(torch.nn.Linear(student_size, feature_sizes[0]).to(self.device))
 
     def forward(self, x):
-        # Forward pass through the backbone
+        # Forward pass through the 
+        x = self.input(x)
         feature_backbone, x1, x2, x3 = self.features(x)
         out_backbone = self.classifier(feature_backbone)
 
@@ -119,6 +121,7 @@ class SalmonLitModule(LightningModule):
         inputs = inputs.to(self.device)
 
         # Forward pass for features and outputs
+        inputs = self.input(inputs)
         feature_backbone, x1, x2, x3 = self.features(inputs)
 
         # Classification step
