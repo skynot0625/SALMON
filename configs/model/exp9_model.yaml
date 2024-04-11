@@ -13,6 +13,7 @@ integrated_resnet_t:
   _target_: src.models.components.exp2_model.IntegratedResNet_T
   architecture: "resnet18"
   num_classes: 10
+  checkpoint_path: "configs/local/Resnet10.ckpt"  # 교사 모델 체크포인트 경로 추가
 
 # Optimizer settings
 optimizer:

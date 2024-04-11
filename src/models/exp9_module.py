@@ -30,6 +30,11 @@ from aihwkit.simulator.configs  import SoftBoundsDevice, SoftBoundsPmaxDevice
 import hydra
 import wandb
 
+
+def load_checkpoint(checkpoint_path, model_component):
+    checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+    model_component.load_state_dict(checkpoint['state_dict'])
+
 class SalmonLitModule(LightningModule):
     def __init__(
         self,
@@ -48,7 +53,8 @@ class SalmonLitModule(LightningModule):
         p: float,
         lambda_kd: float,  # 추가된 파라미터
         train_teacher : bool,
-        autoaugment: bool
+        autoaugment: bool,
+        checkpoint_path: str = None
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -56,6 +62,8 @@ class SalmonLitModule(LightningModule):
         # Initialize only the backbone component from the integrated_resnet
         self.student = integrated_resnet.backbone
         self.teacher = integrated_resnet_t
+        if checkpoint_path is not None:
+            load_checkpoint(checkpoint_path, self.teacher)
 
         # Store additional parameters as needed
         self.compile = compile
