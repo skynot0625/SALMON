@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from lightning import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
-from src.models.components.exp9_1_model import IntegratedResNet, IntegratedResNet_T
+from src.models.components.exp2_model import IntegratedResNet, IntegratedResNet_T
 from aihwkit.optim import AnalogSGD, AnalogAdam
 from aihwkit.nn.conversion import convert_to_analog
 from aihwkit.simulator.presets import TikiTakaEcRamPreset, IdealizedPreset, EcRamPreset
@@ -33,7 +33,7 @@ import wandb
 
 def load_checkpoint(checkpoint_path, model_component):
     checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
-    model_component.load_state_dict(checkpoint['state_dict'], strict=False)
+    model_component.load_state_dict(checkpoint['state_dict'])
 
 class SalmonLitModule(LightningModule):
     def __init__(
@@ -54,7 +54,8 @@ class SalmonLitModule(LightningModule):
         lambda_kd: float,  # 추가된 파라미터
         train_teacher : bool,
         autoaugment: bool,
-        checkpoint_path: str = None
+        checkpoint_path: str = None,
+        temperature: float = 3.0
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -81,6 +82,7 @@ class SalmonLitModule(LightningModule):
         self.test_loss = MeanMetric()
         self.val_acc_best = MaxMetric()
         self.autoaugment = autoaugment
+        self.temperature = temperature
 #         self.hparams.architecture = integrated_resnet.architecture
 #         self.hparams.num_classes
     def forward(self, x):
@@ -96,23 +98,29 @@ class SalmonLitModule(LightningModule):
         return out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t
 
 
-    def training_step(self, batch, batch_idx):
-    # Extract outputs and the last feature map (before pooling) from student and teacher networks
-        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t = self.model_step(batch)
+    def hint_loss(self, fm_s, fm_t):
+        """
+        Computes the Hint loss (MSE) between intermediate feature maps of student and teacher.
+        """
+        return F.mse_loss(fm_s, fm_t)
 
-        # Compute the cross-entropy loss for the student's output
+    def training_step(self, batch, batch_idx):
+        # Extract data
+        inputs, labels = batch
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_s = self.model_step(inputs)
+
+        # Compute the standard cross-entropy loss
         ce_loss = self.criterion(out4_s, labels)
 
-        # Initialize AT loss for all layers
-        at_loss = sum([self.attention_transfer_loss(student_feature, teacher_feature, self.p) 
-                    for student_feature, teacher_feature in zip([x1_s, x2_s, x3_s, x4_s], [x1_t, x2_t, x3_t, x4_t])])
+        # Compute the Hint loss using intermediate feature maps
+        hint_loss = self.hint_loss(feature_s, feature_t)
 
-        # Combine the cross-entropy loss and the AT loss
-        total_loss = ce_loss + self.lambda_kd * at_loss
+        # Combine the losses
+        total_loss = ce_loss + self.lambda_kd * hint_loss
 
         # Logging
         self.log("train/ce_loss", ce_loss, on_step=True, on_epoch=True, prog_bar=True)
-        self.log("train/at_loss", at_loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train/hint_loss", hint_loss, on_step=True, on_epoch=True, prog_bar=True)
         self.log("train/total_loss", total_loss, on_step=True, on_epoch=True, prog_bar=True)
 
         # Compute and log the accuracy
@@ -122,23 +130,7 @@ class SalmonLitModule(LightningModule):
 
         return total_loss
 
-    def attention_transfer_loss(self, student_features, teacher_features, p):
-        """
-        Computes the Attention Transfer loss between student and teacher features.
-        """
-        student_am = self.attention_map(student_features, p)
-        teacher_am = self.attention_map(teacher_features, p)
-        return F.mse_loss(student_am, teacher_am)
 
-    def attention_map(self, fm, p):
-        """
-        Generates an attention map from the given feature map.
-        """
-        am = torch.pow(torch.abs(fm), p)
-        am = torch.sum(am, dim=1, keepdim=True)  #Sum  over channels
-        norm = torch.norm(am, p='fro', dim=[2, 3], keepdim=True)  # Normalize over spatial dimensions
-        am = am / (norm + 1e-6)
-        return am
 
     def validation_step(self, batch, batch_idx):
         # Correctly unpack values returned by model_step

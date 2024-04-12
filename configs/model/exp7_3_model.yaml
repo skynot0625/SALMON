@@ -45,8 +45,8 @@ compile: false
 model: "resnet18"
 dataset: "cifar10"
 epoch: 300
-loss_coefficient: 0.5
-feature_loss_coefficient: 0.03
+loss_coefficient: 0.0
+feature_loss_coefficient: 0.0
 dataset_path: "data"
 autoaugment: False
 temperature: 3
