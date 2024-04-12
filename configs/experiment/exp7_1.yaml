@@ -34,5 +34,7 @@ logger:
     group: "Exp7-4-Input-FC-Digit"
   aim:
     experiment: "7"
-
+    
+callbacks:
+  eqprop_track: eqprop_track
 # Analog Resnet model test

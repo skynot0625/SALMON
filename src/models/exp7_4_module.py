@@ -137,12 +137,12 @@ class SalmonLitModule(LightningModule):
 
         # Return all necessary outputs and features along with labels for loss computation
         return outputs, features, labels
-    
+
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
         inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-        # Forward pass
+        # Use the model_step to forward inputs through the network
         outputs, features, _ = self.model_step((inputs, labels))
 
         # Initialize adaptation layers if not done
@@ -150,31 +150,19 @@ class SalmonLitModule(LightningModule):
             self.setup_adaptation_layers([f.size(1) for f in features])
             self.init_adaptation_layers = True
 
-        # Capture initial weights
-        initial_weights = {name: param.clone() for name, param in self.named_parameters()}
-
-        # Loss computation
+        # Compute self-distillation loss
         loss = self.criterion(outputs[0], labels)
         teacher_output = outputs[0].detach()
         teacher_feature = features[0].detach()
 
-        # Distillation and feature loss computation
         for idx, (output, feature) in enumerate(zip(outputs[1:], features[1:])):
+            # Logits distillation
             loss += self.cross_entropy_distillation(output, teacher_output) * self.loss_coefficient
             loss += self.criterion(output, labels) * (1 - self.loss_coefficient)
+
+            # Feature distillation for subsequent layers
             if idx != 0:
                 loss += torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
-
-        # Backward pass
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-
-        # Calculate and log weight changes
-        for name, param in self.named_parameters():
-            initial_weight = initial_weights[name]
-            weight_change = (param - initial_weight).abs().mean()
-            self.log(f"train/{name}_weight_change", weight_change, on_step=True, on_epoch=False)
 
         # Metrics update and logging
         self.train_acc(torch.argmax(outputs[0], dim=1), labels)

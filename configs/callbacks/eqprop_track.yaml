@@ -1,6 +1,6 @@
 eqprop_track:
   _target_: src.utils.pycallbacks.WandbLoggerCallback
-  on_step: True
+  on_step: False
   on_epoch: True
   log_options:
     "histogram": False

@@ -34,5 +34,5 @@ logger:
     group: "Exp7-4-Input-FC-Digit"
   aim:
     experiment: "7"
-
+    
 # Analog Resnet model test

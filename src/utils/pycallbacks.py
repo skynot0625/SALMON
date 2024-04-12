@@ -41,7 +41,7 @@ class AdvLoggerCallback(Callback):
     def on_batch_end(self, trainer: Trainer, pl_module: L.LightningModule):
         """Log at the batch end."""
         (
-            self.log_everything(pl_module, step=trainer.global_step, key_suffix="_batch")
+            self.log_everything(pl_module.model, step=trainer.global_step, key_suffix="_batch")
             if self.on_step
             else None
         )
@@ -239,19 +239,20 @@ class WandbLoggerCallback(AdvLoggerCallback):
         # wandb.init(project=project)
 
     def on_sanity_check_start(self, trainer: Trainer, pl_module: L.LightningModule) -> None:
-        # Ensure the logger is set, here shown for WandbLogger but can be adapted for others
-        if isinstance(pl_module.logger, WandbLogger):
+        """Find wandb logger at the start of the sanity check."""
+        if type(pl_module.logger) is WandbLogger:
             self.logger = pl_module.logger
         else:
-            raise ValueError("Expected W&B logger but got another type")
+            raise ValueError("W&B logger not found")
 
-    # Initialize Wandb if not already, only necessary if logger might not be set before
     def on_train_start(self, trainer: Trainer, pl_module: L.LightningModule) -> None:
-        if self.logger is None:
-            self.logger = WandbLogger()
-            pl_module.logger = self.logger  # Setting the logger to the module
-            self.logger.watch(pl_module, log='all', log_graph=True)
+        """Find wandb logger at the start of the training.
 
+        This method is required for fast_dev_run.
+        """
+        # assert type(pl_module.logger) is WandbLogger, "W&B logger not found"
+        self.logger = WandbLogger() if self.logger is None else self.logger
+        self.logger.watch(pl_module, log="all", log_graph=False)
 
     def log_histogram(self, key, data, step: int = None, key_suffix: str = "", **kwargs):
         """Log the histogram of the data."""
