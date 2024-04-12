@@ -2,7 +2,7 @@ _target_: src.models.exp9_module_KD.SalmonLitModule
 
 integrated_resnet:
   _target_: src.models.components.exp9_1_model.IntegratedResNet
-  architecture: "resnet18"
+  architecture: "resnet10"
   num_classes: 10
   rpu_config:
     _target_: aihwkit.simulator.configs.SingleRPUConfig
@@ -10,14 +10,14 @@ integrated_resnet:
       _target_: aihwkit.simulator.configs.devices.IdealDevice
 
 integrated_resnet_t:
-  _target_: src.models.components.exp2_model.IntegratedResNet_T
-  architecture: "resnet18"
+  _target_: src.models.components.exp9_1_model.IntegratedResNet_T
+  architecture: "resnet10"
   num_classes: 10
 
 
 # Optimizer settings
 optimizer:
-  lr: 0.01
+  lr: 0.1
   weight_decay: 0.0
   # SGD를 사용하므로, Adam에 특화된 betas, eps, amsgrad 매개변수는 제거
   momentum: 0.9  # SGD에 자주 사용되는 momentum 매개변수 추가
@@ -27,7 +27,7 @@ optimizer:
 
 
 # Additional hyperparameters
-model: "resnet18"
+model: "resnet10"
 dataset: "cifar10"
 epoch: 300
 dataset_path: "data"

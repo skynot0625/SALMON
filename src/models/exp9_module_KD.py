@@ -30,10 +30,19 @@ from aihwkit.simulator.configs  import SoftBoundsDevice, SoftBoundsPmaxDevice
 import hydra
 import wandb
 
-
-def load_checkpoint(checkpoint_path, model_component):
+def load_checkpoint(checkpoint_path, model_component, prefix_remove=None):
     checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
-    model_component.load_state_dict(checkpoint['state_dict'])
+    state_dict = checkpoint['state_dict']
+
+    # 키 이름 조정: 사전 훈련된 모델의 키 이름에서 특정 접두어 제거
+    if prefix_remove:
+        new_state_dict = {key.replace(prefix_remove, ''): value for key, value in state_dict.items() if key.startswith(prefix_remove)}
+    else:
+        new_state_dict = state_dict
+
+    # 모델에 상태 사전 로드
+    model_component.load_state_dict(new_state_dict)  # strict=False를 사용하여 일치하지 않는 키 무시
+
 
 class SalmonLitModule(LightningModule):
     def __init__(
@@ -64,7 +73,8 @@ class SalmonLitModule(LightningModule):
         self.student = integrated_resnet.backbone
         self.teacher = integrated_resnet_t.backbone
         if checkpoint_path is not None:
-            load_checkpoint(checkpoint_path, self.teacher)
+            # 'backbone.' 접두어를 제거하도록 설정
+            load_checkpoint(checkpoint_path, self.teacher, prefix_remove='backbone.')
 
         # Store additional parameters as needed
         self.compile = compile
