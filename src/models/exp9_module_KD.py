@@ -100,45 +100,39 @@ class SalmonLitModule(LightningModule):
 
     def model_step(self, batch):
         inputs, labels = batch
-        # 학생 모델에서 반환된 모든 값을 처리합니다.
+        # 학생 모델과 교사 모델의 출력을 받습니다.
         out4_s, feature_s, x4_s, x1_s, x2_s, x3_s = self.student(inputs)
-        # 교사 모델에서 반환된 모든 값을 처리합니다.
         out4_t, feature_t, x4_t, x1_t, x2_t, x3_t = self.teacher(inputs)
+
+        # 교사 모델과 학생 모델의 출력을 로그에 기록합니다.
+#         self.log("debug/teacher_output_mean", out4_t.mean(), on_step=True)
+#         self.log("debug/student_output_mean", out4_s.mean(), on_step=True)
 
         return out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t
 
-
     def soft_target_loss(self, student_logits, teacher_logits):
-        """
-        Compute the SoftTarget loss between student and teacher outputs.
-        """
         student_probs = F.log_softmax(student_logits / self.temperature, dim=1)
         teacher_probs = F.softmax(teacher_logits / self.temperature, dim=1)
-        return F.kl_div(student_probs, teacher_probs, reduction='batchmean') * (self.temperature ** 2)
+        loss = F.kl_div(student_probs, teacher_probs, reduction='batchmean') * (self.temperature ** 2)
+
+        # 소프트 타깃 손실을 로그에 기록합니다 (on_epoch=True로 변경).
+        self.log("debug/soft_target_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+
+        return loss
 
     def training_step(self, batch, batch_idx):
-        # Extract data
-        inputs, labels = batch
-        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_s = self.model_step(inputs)
-
-        # Compute the standard cross-entropy loss
+        out4_s, feature_s, x4_s, out4_t, feature_t, x4_t, labels, x1_s, x2_s, x3_s, x1_t, x2_t, x3_t = self.model_step(batch)
         ce_loss = self.criterion(out4_s, labels)
-
-        # Compute the knowledge distillation loss using the soft_target_loss method
         st_loss = self.soft_target_loss(out4_s, out4_t)
 
-        # Combine the losses
         total_loss = ce_loss + self.lambda_kd * st_loss
+        self.log("train/ce_loss", ce_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train/st_loss", st_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train/total_loss", total_loss, on_step=False, on_epoch=True, prog_bar=True)
 
-        # Logging
-        self.log("train/ce_loss", ce_loss, on_step=True, on_epoch=True, prog_bar=True)
-        self.log("train/st_loss", st_loss, on_step=True, on_epoch=True, prog_bar=True)
-        self.log("train/total_loss", total_loss, on_step=True, on_epoch=True, prog_bar=True)
-
-        # Compute and log the accuracy
         pred = torch.argmax(out4_s, dim=1)
         acc = self.train_acc(pred, labels)
-        self.log("train/acc", acc, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train/acc", acc, on_step=False, on_epoch=True, prog_bar=True)
 
         return total_loss
 
@@ -203,7 +197,7 @@ class SalmonLitModule(LightningModule):
     def configure_optimizers(self):
         # AnalogSGD로 최적화기 설정 변경
         optimizer = AnalogSGD(
-            list(self.student.parameters()) + list(self.teacher.parameters()), 
+            list(self.student.parameters()), 
             lr=self.hparams.optimizer['lr'],
             weight_decay=self.hparams.optimizer['weight_decay'],
             momentum=self.hparams.optimizer.get('momentum', 0),

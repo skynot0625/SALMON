@@ -211,7 +211,7 @@ class SalmonLitModule(LightningModule):
     def configure_optimizers(self):
         # AnalogSGD로 최적화기 설정 변경
         optimizer = AnalogSGD(
-            list(self.student.parameters()) + list(self.teacher.parameters()), 
+            list(self.student.parameters()), 
             lr=self.hparams.optimizer['lr'],
             weight_decay=self.hparams.optimizer['weight_decay'],
             momentum=self.hparams.optimizer.get('momentum', 0),
