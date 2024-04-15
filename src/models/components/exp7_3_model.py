@@ -480,9 +480,9 @@ class ResNetFeatures(nn.Module):
     
     def forward(self, x):
         x1 = self.layer1(x)
-        x2 = self.layer2(x1.detach().clone())
-        x3 = self.layer3(x2.detach().clone())
-        x4 = self.layer4(x3.detach().clone())
+        x2 = self.layer2(x1.detach())
+        x3 = self.layer3(x2.detach())
+        x4 = self.layer4(x3.detach())
         out4_feature = self.scala4(x4).view(x4.size(0), -1)
 
         return out4_feature, x1, x2, x3

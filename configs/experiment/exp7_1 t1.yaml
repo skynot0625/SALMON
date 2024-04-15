@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: salmon
-  - override /model: exp7_1_model
+  - override /model: exp7_1_t1_model
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet18","lr001","AnalogSGD","IdealizedPreset","FC-Digit","SD","4bit"]
+tags: ["cifar10", "Resnet18","lr001","AnalogSGD","IdealizedPreset","FC-Digit","SD","4bit","t1"]
 
 seed: 12345
 
