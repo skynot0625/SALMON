@@ -9,7 +9,7 @@ integrated_resnet:
     _target_: aihwkit.simulator.presets.IdealizedPreset
     device:
       _target_: aihwkit.simulator.presets.devices.IdealizedPresetDevice
-      dw_min: 0.015625
+      dw_min: 0.0078125
       dw_min_dtod: 0.0  # 수정됨
       dw_min_std: 0.0   # 수정됨
       up_down: 0.0
