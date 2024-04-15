@@ -5,7 +5,7 @@
 
 defaults:
   - override /data: salmon
-  - override /model: exp7_1_t1_model
+  - override /model: exp7_1_model_t1
   - override /callbacks: default
   - override /trainer: default
 
