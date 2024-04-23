@@ -50,7 +50,8 @@ class SalmonLitModule(LightningModule):
         opt_config : str,
         sch_config : str,
         sd_config : str,
-        FC_Digit : str
+        FC_Digit : str,
+        debug_mode: bool = True
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -93,36 +94,17 @@ class SalmonLitModule(LightningModule):
         self.val_acc_0_best = MaxMetric()
         self.adaptation_layers = torch.nn.ModuleList()
         self.init_adaptation_layers = False
-    
-    # def on_train_epoch_end(self, unused=None, outputs=None):
-    #     # 모든 레이어 목록 정의
-    #     layers = {
-    #         'input': self.input,
-    #         'features_layer1': self.features.layer1,
-    #         'features_layer2': self.features.layer2,
-    #         'features_layer3': self.features.layer3,
-    #         'features_layer4': self.features.layer4,
-    #         'classifier': self.classifier
-    #     }
-
-    #     # 각 레이어의 가중치 평균과 표준 편차 로깅
-    #     for layer_name, layer in layers.items():
-    #             weight_dicts = layer.get_weights()  # 가중치 가져오기
-    #             for sub_layer_name, (weight, bias) in weight_dicts.items():
-    #                 weight_mean = weight.mean().item()
-    #                 weight_std = weight.std().item()
-
-    #                 # 로깅
-    #                 self.log(f'{layer_name}_{sub_layer_name}/weight_mean', weight_mean)
-    #                 self.log(f'{layer_name}_{sub_layer_name}/weight_std', weight_std)
-
-    #                 # 터미널 출력
-    #                 # print(f"{layer_name}_{sub_layer_name} - Weight Mean: {weight_mean}, Std: {weight_std}")
-
+        self.debug_mode = debug_mode
 
     def setup_adaptation_layers(self, feature_sizes):
         for student_size in feature_sizes:
             self.adaptation_layers.append(torch.nn.Linear(student_size, feature_sizes[0]).to(self.device))
+
+    
+
+    def on_train_start(self):
+        if self.hparams.debug_mode:  # debug_mode가 활성화되어 있을 때만 검증을 실행
+            self.verify_detach_effectiveness()
 
     def forward(self, x):
         # Forward pass through the 
@@ -163,6 +145,31 @@ class SalmonLitModule(LightningModule):
 
         # Return all necessary outputs and features along with labels for loss computation
         return outputs, features, labels
+    
+    def on_train_epoch_end(self, unused=None, outputs=None):
+        # 모든 레이어 목록 정의
+        layers = {
+            'input': self.input,
+            'features_layer1': self.features.layer1,
+            'features_layer2': self.features.layer2,
+            'features_layer3': self.features.layer3,
+            'features_layer4': self.features.layer4,
+            'classifier': self.classifier
+        }
+
+        # 각 레이어의 가중치 평균과 표준 편차 로깅
+        for layer_name, layer in layers.items():
+                weight_dicts = layer.get_weights()  # 가중치 가져오기
+                for sub_layer_name, (weight, bias) in weight_dicts.items():
+                    weight_mean = weight.mean().item()
+                    weight_std = weight.std().item()
+
+                    # 로깅
+                    self.log(f'{layer_name}_{sub_layer_name}/weight_mean', weight_mean)
+                    self.log(f'{layer_name}_{sub_layer_name}/weight_std', weight_std)
+
+                    # 터미널 출력
+                    # print(f"{layer_name}_{sub_layer_name} - Weight Mean: {weight_mean}, Std: {weight_std}")
 
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
@@ -183,12 +190,12 @@ class SalmonLitModule(LightningModule):
 
         for idx, (output, feature) in enumerate(zip(outputs[1:], features[1:])):
             # Logits distillation
-#             loss += self.cross_entropy_distillation(teacher_output,output) * self.loss_coefficient
-            loss += self.criterion(output, labels) * (1-self.loss_coefficient)
+            loss += self.cross_entropy_distillation(output, teacher_output) * self.loss_coefficient
+            loss += self.criterion(output, labels) * (1 - self.loss_coefficient)
 
             # Feature distillation for subsequent layers
-#             if idx != 0:
-#                 loss += torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
+            if idx != 0:
+                loss += torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
 
         # Metrics update and logging
         self.train_acc(torch.argmax(outputs[0], dim=1), labels)
@@ -220,22 +227,22 @@ class SalmonLitModule(LightningModule):
             total_loss += loss
             total_acc.append(acc)
 
-            # 모든 네트워크 출력에 대해 일관된 로깅 인자 사용
             self.log(f"val/loss_{i}", loss, on_step=False, on_epoch=True)
-            if i == 0:
-                # 첫 번째 출력에 대한 정확도만 별도로 로깅 (progress bar 추가)
-                self.log(f"val/acc_{i}", acc, on_step=False, on_epoch=True, prog_bar=True)
-            else:
-                self.log(f"val/acc_{i}", acc, on_step=False, on_epoch=True)
+            self.log(f"val/acc_{i}", acc, on_step=False, on_epoch=True)
+            if i == 0:  # 첫 번째 네트워크에 대한 정확도를 별도로 추적
+                self.val_acc_0_best.update(acc)
 
         avg_loss = total_loss / len(outputs)
         avg_acc = sum(total_acc) / len(total_acc)
         return {"val_loss": avg_loss, "val_acc": avg_acc}
 
-
     def on_validation_epoch_end(self):
+        # 첫 번째 네트워크의 최고 검증 정확도를 로깅
+        val_acc_0_best = self.val_acc_0_best.compute()
+        self.log("val/acc_0_best", val_acc_0_best, prog_bar=True)
+        
         self.val_acc.reset()  # 모든 정확도 추적기를 리셋
-
+        self.val_acc_0_best.reset()
 
 
     def test_step(self, batch, batch_idx):
