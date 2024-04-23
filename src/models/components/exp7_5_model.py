@@ -266,10 +266,11 @@ class ResNetBackbone(nn.Module):
         return out4, out4_feature, x1, x2, x3
 
 class ResNetAttention1(nn.Module):
-    def __init__(self, block, num_classes=100):
+    def __init__(self, block, num_classes=100):  # num_classes 매개변수 추가
         super(ResNetAttention1, self).__init__()
         block = self._get_block_class(block)
 
+        # attention layer에서의 channel_in을 128로 변경
         self.attention = nn.Sequential(
             SepConv(channel_in=128 * block.expansion, channel_out=128 * block.expansion),
             nn.BatchNorm2d(128 * block.expansion),
@@ -278,26 +279,40 @@ class ResNetAttention1(nn.Module):
             nn.Sigmoid()
         )
         
+        # scala layer에서의 첫 번째 SepConv의 channel_in을 128로 변경
         self.scala = nn.Sequential(
             SepConv(channel_in=128 * block.expansion, channel_out=256 * block.expansion),
             SepConv(channel_in=256 * block.expansion, channel_out=512 * block.expansion),
+            SepConv(channel_in=512 * block.expansion, channel_out=1024 * block.expansion),
             nn.AvgPool2d(4, 4)
         )
         
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        # 마지막 SepConv 계층 후 출력 채널을 고려하여 self.fc를 조정
+        self.fc = nn.Linear(1024 * block.expansion, num_classes)  # 최종 출력 채널을 num_classes로 설정
 
     def forward(self, x1):
         fea = self.attention(x1)
-        fea = fea * x1
-        feature_out = self.scala(fea).view(fea.size(0), -1)
+        fea = fea * x1  # 입력 feature에 attention 적용
+        feature_out = self.scala(fea).view(fea.size(0), -1)  # 평탄화
         out = self.fc(feature_out)
         return out, feature_out
+    
+    @staticmethod
+    def _get_block_class(block_name):
+        if block_name == 'BasicBlock':
+            return BasicBlock
+        elif block_name == 'Bottleneck':
+            return Bottleneck
+        else:
+            raise ValueError(f"Unknown block type: {block_name}")
+
 
 class ResNetAttention2(nn.Module):
     def __init__(self, block, num_classes=100):
         super(ResNetAttention2, self).__init__()
         block = self._get_block_class(block)
 
+        # attention 계층의 channel_in을 두 배로 증가
         self.attention = nn.Sequential(
             SepConv(channel_in=256 * block.expansion, channel_out=256 * block.expansion),
             nn.BatchNorm2d(256 * block.expansion),
@@ -306,12 +321,14 @@ class ResNetAttention2(nn.Module):
             nn.Sigmoid()
         )
         
+        # scala 계층의 channel_in을 두 배로 증가
         self.scala = nn.Sequential(
             SepConv(channel_in=256 * block.expansion, channel_out=512 * block.expansion),
+            SepConv(channel_in=512 * block.expansion, channel_out=1024 * block.expansion),
             nn.AvgPool2d(4, 4)
         )
         
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(1024 * block.expansion, num_classes)
 
     def forward(self, x2):
         fea = self.attention(x2)
@@ -320,11 +337,21 @@ class ResNetAttention2(nn.Module):
         out = self.fc(feature_out)
         return out, feature_out
 
+    @staticmethod
+    def _get_block_class(block_name):
+        if block_name == 'BasicBlock':
+            return BasicBlock
+        elif block_name == 'Bottleneck':
+            return Bottleneck
+        else:
+            raise ValueError(f"Unknown block type: {block_name}")
+
 class ResNetAttention3(nn.Module):
     def __init__(self, block, num_classes=100):
         super(ResNetAttention3, self).__init__()
         block = self._get_block_class(block)
         
+        # attention 계층의 channel_in을 두 배로 증가
         self.attention = nn.Sequential(
             SepConv(channel_in=512 * block.expansion, channel_out=512 * block.expansion),
             nn.BatchNorm2d(512 * block.expansion),
@@ -333,6 +360,7 @@ class ResNetAttention3(nn.Module):
             nn.Sigmoid()
         )
         
+        # scala 계층의 channel_in을 두 배로 증가
         self.scala = nn.Sequential(
             SepConv(channel_in=512 * block.expansion, channel_out=1024 * block.expansion),
             nn.AvgPool2d(4, 4)
@@ -346,6 +374,15 @@ class ResNetAttention3(nn.Module):
         feature_out = self.scala(fea).view(fea.size(0), -1)
         out = self.fc(feature_out)
         return out, feature_out
+    
+    @staticmethod
+    def _get_block_class(block_name):
+        if block_name == 'BasicBlock':
+            return BasicBlock
+        elif block_name == 'Bottleneck':
+            return Bottleneck
+        else:
+            raise ValueError(f"Unknown block type: {block_name}")
 
 
 def create_resnet(architecture="resnet34", num_classes=10):
@@ -426,6 +463,7 @@ class ResNetFeatures(nn.Module):
                                        dilate=self.replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 1024, layers[3], stride=2,
                                        dilate=self.replace_stride_with_dilation[2])
+        self.scala4 = nn.AvgPool2d(4, 4)  # 평균 풀링 레이어  # Assuming ScalaNet is defined elsewhere
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer

@@ -84,32 +84,40 @@ class SalmonLitModule(LightningModule):
 
         # loss function and metrics 초기화
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.train_acc_0 = Accuracy(task="multiclass", num_classes=10)
-        self.train_acc_1 = Accuracy(task="multiclass", num_classes=10)
-        self.train_acc_2 = Accuracy(task="multiclass", num_classes=10)
-        self.train_acc_3 = Accuracy(task="multiclass", num_classes=10)
-        
-        self.val_acc_0 = Accuracy(task="multiclass", num_classes=10)
-        self.val_acc_1 = Accuracy(task="multiclass", num_classes=10)
-        self.val_acc_2 = Accuracy(task="multiclass", num_classes=10)
-        self.val_acc_3 = Accuracy(task="multiclass", num_classes=10)
-
-        self.test_acc_0 = Accuracy(task="multiclass", num_classes=10)
-        self.test_acc_1 = Accuracy(task="multiclass", num_classes=10)
-        self.test_acc_2 = Accuracy(task="multiclass", num_classes=10)
-        self.test_acc_3 = Accuracy(task="multiclass", num_classes=10)
+        self.train_acc = Accuracy(task="multiclass", num_classes=10)
+        self.val_acc = Accuracy(task="multiclass", num_classes=10)
+        self.test_acc = Accuracy(task="multiclass", num_classes=10)
         self.train_loss = MeanMetric()
         self.val_loss = MeanMetric()
         self.test_loss = MeanMetric()
         self.val_acc_0_best = MaxMetric()
         self.adaptation_layers = torch.nn.ModuleList()
         self.init_adaptation_layers = False
-        
+    
+    # def on_train_epoch_end(self, unused=None, outputs=None):
+    #     # 모든 레이어 목록 정의
+    #     layers = {
+    #         'input': self.input,
+    #         'features_layer1': self.features.layer1,
+    #         'features_layer2': self.features.layer2,
+    #         'features_layer3': self.features.layer3,
+    #         'features_layer4': self.features.layer4,
+    #         'classifier': self.classifier
+    #     }
 
-    def on_train_start(self):
-        device = self.device
-        for metric in self.train_acc + self.val_acc + self.test_acc + [self.val_acc_0_best, self.train_loss, self.val_loss, self.test_loss]:
-            metric.to(device)
+    #     # 각 레이어의 가중치 평균과 표준 편차 로깅
+    #     for layer_name, layer in layers.items():
+    #             weight_dicts = layer.get_weights()  # 가중치 가져오기
+    #             for sub_layer_name, (weight, bias) in weight_dicts.items():
+    #                 weight_mean = weight.mean().item()
+    #                 weight_std = weight.std().item()
+
+    #                 # 로깅
+    #                 self.log(f'{layer_name}_{sub_layer_name}/weight_mean', weight_mean)
+    #                 self.log(f'{layer_name}_{sub_layer_name}/weight_std', weight_std)
+
+    #                 # 터미널 출력
+    #                 # print(f"{layer_name}_{sub_layer_name} - Weight Mean: {weight_mean}, Std: {weight_std}")
 
 
     def setup_adaptation_layers(self, feature_sizes):
@@ -155,52 +163,40 @@ class SalmonLitModule(LightningModule):
 
         # Return all necessary outputs and features along with labels for loss computation
         return outputs, features, labels
-    
+
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
         inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-        # Pass the inputs through the model and get the outputs and features.
+        # Use the model_step to forward inputs through the network
         outputs, features, _ = self.model_step((inputs, labels))
 
-        # Initialize the adaptation layers (if not already initialized)
+        # Initialize adaptation layers if not done
         if not self.init_adaptation_layers:
             self.setup_adaptation_layers([f.size(1) for f in features])
             self.init_adaptation_layers = True
 
-        # Calculate loss using the base output
+        # Compute self-distillation loss
         loss = self.criterion(outputs[0], labels)
         teacher_output = outputs[0].detach()
         teacher_feature = features[0].detach()
 
-        # Calculate and log independent accuracy and loss for each output
-        losses = [loss]
-        getattr(self, "train_acc_0")(torch.argmax(outputs[0], dim=1), labels)
-        self.log("train/acc_0", self.train_acc_0.compute(), on_step=False, on_epoch=True)
-
-        # Calculate self-distillation loss
         for idx, (output, feature) in enumerate(zip(outputs[1:], features[1:])):
-            logits_distillation_loss = self.cross_entropy_distillation(output, teacher_output) * self.loss_coefficient
-            direct_loss = self.criterion(output, labels) * (1 - self.loss_coefficient)
-            current_loss = logits_distillation_loss + direct_loss
-            
-            # Apply feature distillation logic (for all layers except the first one)
-            if idx != 0:  # Exclude the first output (teacher_output)
-                feature_distillation_loss = torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
-                current_loss += feature_distillation_loss
-                losses.append(feature_distillation_loss)
+            # Logits distillation
+#             loss += self.cross_entropy_distillation(teacher_output,output) * self.loss_coefficient
+            loss += self.criterion(output, labels) * self.loss_coefficient
 
-            losses.append(current_loss)
-            getattr(self, f"train_acc_{idx + 1}")(torch.argmax(output, dim=1), labels)
-            self.log(f"train/acc_{idx + 1}", getattr(self, f"train_acc_{idx + 1}").compute(), on_step=False, on_epoch=True)
-            self.log(f"train/loss_{idx + 1}", current_loss, on_step=False, on_epoch=True)
+            # Feature distillation for subsequent layers
+#             if idx != 0:
+#                 loss += torch.dist(self.adaptation_layers[idx-1](feature), teacher_feature) * self.feature_loss_coefficient
 
-        # Log total loss
-        total_loss = sum(losses)
-        self.train_loss(total_loss)
-        self.log("train/loss", total_loss, on_step=False, on_epoch=True)
+        # Metrics update and logging
+        self.train_acc(torch.argmax(outputs[0], dim=1), labels)
+        self.train_loss(loss)
+        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True)
+        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
 
-        return total_loss
+        return loss
 
 
 
@@ -214,30 +210,38 @@ class SalmonLitModule(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         outputs, features, labels = self.model_step(batch)
-        losses = []
-        for idx, output in enumerate(outputs):
-            loss = self.criterion(output, labels)
-            losses.append(loss)
-            getattr(self, f"val_acc_{idx}")(torch.argmax(output, dim=1), labels)
-            self.log(f"val/loss_{idx}", loss, on_step=False, on_epoch=True)
-            self.log(f"val/acc_{idx}", getattr(self, f"val_acc_{idx}").compute(), on_step=False, on_epoch=True)
-            if idx == 0:
-                self.val_acc_0_best.update(getattr(self, f"val_acc_{idx}").compute())
+        total_loss = 0
+        total_acc = []
 
-        total_loss = sum(losses)
-        return {"val_loss": total_loss, "val_acc": getattr(self, f"val_acc_{idx}").compute()}
+        # 각 네트워크에 대한 손실 및 정확도 계산 및 로깅
+        for i, output in enumerate(outputs):
+            loss = self.criterion(output, labels)
+            acc = self.val_acc(torch.argmax(output, dim=1), labels)
+            total_loss += loss
+            total_acc.append(acc)
+
+            self.log(f"val/loss_{i}", loss, on_step=False, on_epoch=True)
+            self.log(f"val/acc_{i}", acc, on_step=False, on_epoch=True)
+            
+            # 첫 번째 출력에 대한 정확도만 별도로 로깅
+            if i == 0:
+                self.log(f"val/acc_0", acc, on_step=False, on_epoch=True, prog_bar=True)
+
+        avg_loss = total_loss / len(outputs)
+        avg_acc = sum(total_acc) / len(total_acc)
+        return {"val_loss": avg_loss, "val_acc": avg_acc}
 
     def on_validation_epoch_end(self):
-        val_acc_0_best = self.val_acc_0_best.compute()
-        self.log("val/acc_0_best", val_acc_0_best, prog_bar=True)
-        self.val_acc_0_best.reset()
+        self.val_acc.reset()  # 모든 정확도 추적기를 리셋
+
+
 
     def test_step(self, batch, batch_idx):
         outputs, features, labels = self.model_step(batch)
         main_output = outputs[0]  # 메인 출력을 사용하여 손실과 정확도를 계산합니다.
 
         loss = self.criterion(main_output, labels)
-        acc = self.test_acc_0(torch.argmax(main_output, dim=1), labels)
+        acc = self.test_acc(torch.argmax(main_output, dim=1), labels)
 
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True)

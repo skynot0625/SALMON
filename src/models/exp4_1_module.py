@@ -207,7 +207,7 @@ class SalmonLitModule(LightningModule):
         self.val_acc.reset()  # 모든 정확도 추적기를 리셋
         self.val_acc_0_best.reset()
 
-     def test_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx):
         outputs, features, labels = self.model_step(batch)
         main_output = outputs[0]  # 메인 출력을 사용하여 손실과 정확도를 계산합니다.
 
