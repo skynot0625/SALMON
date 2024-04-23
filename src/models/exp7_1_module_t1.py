@@ -150,12 +150,13 @@ class SalmonLitModule(LightningModule):
             self.setup_adaptation_layers([f.size(1) for f in features])
             self.init_adaptation_layers = True
 
+        loss = self.criterion(outputs[3], labels)
         # Compute self-distillation loss using outputs[3] and features[3] as the teacher
         teacher_output = outputs[3].detach()  # Using the 4th output as the teacher output
         teacher_feature = features[3].detach()  # Using the 4th feature as the teacher feature
 
         # Reset loss with the teacher output
-        loss = self.criterion(teacher_output, labels)
+
 
         for idx, (output, feature) in enumerate(zip(outputs, features)):
             if idx != 3:  # Exclude the teacher index from direct self-comparison

@@ -35,6 +35,4 @@ logger:
   aim:
     experiment: "7"
     
-callbacks:
-  eqprop_track: eqprop_track
 # Analog Resnet model test
