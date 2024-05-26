@@ -1,0 +1,40 @@
+_target_: src.models.exp10_module_SNN.SalmonLitModule
+
+net:
+  _target_: src.models.components.exp10_model_SNN.Spiking_ResNet18_LIF_STBP
+  num_steps: 5
+  init_tau: 0.9
+  scale: 64
+  subthresh: 1.0
+  RPU_CONFIG:
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
+    device:
+      _target_: aihwkit.simulator.configs.devices.LinearStepDevice
+      dw_min: 0.03125
+      dw_min_dtod: 0.0
+      dw_min_std: 0.0
+      up_down: 0.0
+      up_down_dtod: 0.0
+      w_max: 1.0
+      w_min: -1.0
+      w_max_dtod: 0.0
+      w_min_dtod: 0.0
+      gamma_up: 0.0
+      gamma_down: 0.0
+      gamma_up_dtod: 0.0
+      gamma_down_dtod: 0.0
+      mult_noise: False
+      write_noise_std: 0.0
+      lifetime: 0.0
+      lifetime_dtod: 0.0
+      reset_std: 0.0
+      mean_bound_reference: True
+
+optimizer:
+  lr: 0.01
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 300

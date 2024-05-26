@@ -12,7 +12,7 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet18","lr001","AnalogSGD","ReRAMPreset","FC-Digit","SD","updown=0"]
+tags: ["cifar10", "Resnet18","lr001","AnalogSGD","FC-Digit","LinearStepDevice","gamma:0.0","6bit","SD","CosineLR"]
 
 seed: 12345
 
@@ -31,7 +31,7 @@ data:
 logger:
   wandb:
     tags: ${tags}
-    group: "Exp7-9-test"
+    group: "1-Result-SD"
   aim:
     experiment: "7"
     

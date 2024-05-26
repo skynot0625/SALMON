@@ -1,4 +1,4 @@
-_target_: src.models.exp7_module.SalmonLitModule
+_target_: src.models.exp7_4_module.SalmonLitModule
 
 # Define the IntegratedResNet configuration
 integrated_resnet:
@@ -6,19 +6,28 @@ integrated_resnet:
   architecture: "resnet18"
   num_classes: 10
   rpu_config:
-    _target_: aihwkit.simulator.presets.IdealizedPreset
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
     device:
-      _target_: aihwkit.simulator.presets.devices.IdealizedPresetDevice
-      dw_min: 0.01562
-      dw_min_dtod: 0.0  # 수정됨
-      dw_min_std: 0.0   # 수정됨
+      _target_: aihwkit.simulator.configs.devices.LinearStepDevice
+      dw_min: 0.000244140625
+      dw_min_dtod: 0.0  # Device-to-device variation for minimum weight change disabled
+      dw_min_std: 0.0   # Standard deviation for cycle-to-cycle noise for minimum weight change disabled
       up_down: 0.0
-      up_down_dtod: 0.0  # 이미 0
+      up_down_dtod: 0.0  # Device-to-device variation for up_down parameter disabled
       w_max: 1.0
       w_min: -1.0
-      w_max_dtod: 0.0   # 수정됨
-      w_min_dtod: 0.0   # 수정됨
-
+      w_max_dtod: 0.0  # Device-to-device variation for maximum weight disabled
+      w_min_dtod: 0.0  # Device-to-device variation for minimum weight disabled
+      gamma_up: 0.1 # Gamma value for update in up direction disabled
+      gamma_down: 0.1 # Gamma value for update in down direction disabled
+      gamma_up_dtod: 0.0  # Device-to-device variation for gamma_up disabled
+      gamma_down_dtod: 0.0  # Device-to-device variation for gamma_down disabled
+      mult_noise: False  # Multiplier noise remains disabled
+      write_noise_std: 0.0  # Standard deviation for write noise disabled
+      lifetime: 0.0  # Lifetime of the device before leakage affects it disabled
+      lifetime_dtod: 0.0  # Device-to-device variation for lifetime disabled
+      reset_std: 0.0
+      mean_bound_reference : True
 
 # 4비트: 0.125
 # 5비트: 0.0625
@@ -43,6 +52,15 @@ optimizer:
   # dampening: 0  # 선택적
   # nesterov: False  # 선택적
 
+# step lr일 경우
+# scheduler:
+#   step_size: 100
+#   gamma: 0.1
+
+# cosine anealing일 경우
+scheduler:
+  T_max: 300  # 최대 반복 횟수
+  eta_min: 0.0001  # 최소 학습률
 
 compile: false
 

@@ -5,14 +5,14 @@
 
 defaults:
   - override /data: salmon
-  - override /model: exp10_model
+  - override /model: exp10_model_SNN
   - override /callbacks: default
   - override /trainer: default
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["cifar10", "Resnet-34-channel64-lr-001"]
+tags: ["cifar10", "Resnet18","lr001","SNN","IdealizedPreset","SGD","subthre=1.0"]
 
 seed: 12345
 
@@ -21,20 +21,14 @@ trainer:
   max_epochs: 300
   gradient_clip_val: 0.5
 
-model:
-  optimizer:
-    lr: 0.01
-    weight_decay: 0.0
-  compile: false
-
 data:
   batch_size: 128
 
 logger:
   wandb:
     tags: ${tags}
-    group: "Exp8-Analog-Detach-BD-Cifar10-SD"
+    group: "Result-3-SNN"
   aim:
-    experiment: "8"
-
-# salmon model 기본 실험 Resnet10 기본모델로 test
+    experiment: "7"
+    
+# Analog Resnet model test
