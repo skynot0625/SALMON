@@ -28,7 +28,7 @@ from aihwkit.simulator.configs import (
 sys.path.append('/path/to/src/aihwkit') 
 # RPU_CONFIG = FloatingPointRPUConfig(device=FloatingPointDevice())
 # RPU_CONFIG = SingleRPUConfig(device=IdealDevice())
-RPU_CONFIG = IdealizedPreset()
+# RPU_CONFIG = IdealizedPreset()
 class Boxcar(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, thresh, subthresh):
