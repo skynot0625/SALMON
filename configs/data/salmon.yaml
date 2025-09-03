@@ -1,4 +1,4 @@
-_target_: src.data.cifar10_datamodule.Cifar10DataModule
+_target_: src.data.cifar100_datamodule.Cifar100DataModule
 data_dir: ${paths.data_dir}  # 데이터셋이 저장될 경로
 batch_size: 128  # 배치 크기, 분산 학습 환경에 맞게 조정 가능
 train_val_test_split: [45_000, 5_000, 10_000]  # 학습, 검증, 테스트 데이터셋 분할

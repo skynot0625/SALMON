@@ -4,7 +4,7 @@ _target_: src.models.exp7_4_module.SalmonLitModule
 integrated_resnet:
   _target_: src.models.components.exp7_model.IntegratedResNet
   architecture: "resnet18"
-  num_classes: 10
+  num_classes: 100
   rpu_config:
     _target_: aihwkit.simulator.configs.SingleRPUConfig
     device:
@@ -66,12 +66,12 @@ compile: false
 
 # Additional hyperparameters
 model: "resnet18"
-dataset: "cifar10"
+dataset: "cifar100"
 epoch: 300
 dataset_path: "data"
 autoaugment: False
 batchsize: 128
-N_CLASSES: 10
+N_CLASSES: 100
 opt_config : "AnalogSGD"
 sch_config : "Lr-step"
 sd_config : "false"
