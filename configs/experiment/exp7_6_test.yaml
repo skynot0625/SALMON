@@ -1,0 +1,55 @@
+# @package _global_
+
+# Test configuration for SALMON Digital Module Gradient Alignment Probes
+# This is a quick test configuration to verify the gradient probing works correctly
+# Uses reduced epochs and batches for fast validation
+
+defaults:
+  - override /data: salmon
+  - override /model: exp7_6_digital_model
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "Resnet18", "gradient_alignment_test", "IdealizedPreset", "Device2", "digital_module", "test"]
+
+seed: 42
+
+trainer:
+  min_epochs: 5
+  max_epochs: 5  # Reduced for testing
+  gradient_clip_val: 0.5
+  limit_train_batches: 10  # Only use 10 batches per epoch for quick testing
+  limit_val_batches: 5     # Only use 5 validation batches
+  accelerator: gpu
+  devices: 1
+
+model:
+  compile: false
+  # Override probe configuration for testing
+  probe:
+    enabled: true
+    epochs: [1, 3, 5]  # Test at epochs 1, 3, and 5
+    batches_per_epoch: 2  # Only 2 batches for quick testing
+    batch_size: 32
+    alpha_eval: [0.0, 0.5, 1.0]  # Reduced alpha values for testing
+    seed: 42
+
+data:
+  batch_size: 128
+  num_workers: 4
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "gradient-alignment-test"
+    project: "salmon-test"
+  aim:
+    experiment: "7_6_digital_test"
+
+# Quick test mode - disable checkpointing for speed
+callbacks:
+  model_checkpoint:
+    save_top_k: 0  # Don't save checkpoints during test

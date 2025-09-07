@@ -562,7 +562,7 @@ class IntegratedResNet(nn.Module):
         # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.
         rpu_config_float = FloatingPointRPUConfig()
         self.input_module = create_input_module()
-        self.input_module = convert_to_analog(self.input_module, rpu_https://github.com/skynot0625/SALMONconfig=rpu_config_float)
+        self.input_module = convert_to_analog(self.input_module, rpu_config=rpu_config_float)
         self.features = create_resnet_features(architecture=architecture)
         self.features = convert_to_analog(self.features, rpu_config=rpu_config)
         # 인풋 피처의 크기를 정확히 계산하는 것이 중요합니다. 여기서는 예시로 512 * block.expansion을 사용합니다.
@@ -600,7 +600,7 @@ class IntegratedResNet(nn.Module):
 #         # create_resnet_features 함수와 create_resnet_classifier 함수를 사용하여 각각의 컴포넌트를 초기화합니다.
 #         rpu_config_float = FloatingPointRPUConfig()
 #         self.input_module = create_input_module()
-#         self.input_module = convert_to_analog(self.input_module, rpu_https://github.com/skynot0625/SALMONconfig=rpu_config_float)
+#         self.input_module = convert_to_analog(self.input_module, rpu_config=rpu_config_float)
 #         self.features = create_resnet_features(architecture=architecture)
 #         self.features = convert_to_analog(self.features, rpu_config=rpu_config)
 #         # 인풋 피처의 크기를 정확히 계산하는 것이 중요합니다. 여기서는 예시로 512 * block.expansion을 사용합니다.
