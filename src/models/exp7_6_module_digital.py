@@ -1106,13 +1106,15 @@ class SalmonLitModule(LightningModule):
 
     def _aggregate_epoch_and_plot(self, epoch: int, has_fp32: bool):
         """Aggregate statistics and create plots for an epoch."""
-        os.makedirs('./probes/plots', exist_ok=True)
+        loss_coef_str = f"loss_coef_{self.loss_coefficient:.2f}".replace(".", "_").replace("-", "neg")
+        probe_dir = f'./probes/{loss_coef_str}'
+        os.makedirs(f'{probe_dir}/plots', exist_ok=True)
         
         # 1) Read all seed CSV files for this epoch
         if has_fp32:
-            pattern = f'./probes/epoch_{epoch}_seed_*_fp32_alignment.csv'
+            pattern = f'{probe_dir}/epoch_{epoch}_seed_*_fp32_alignment.csv'
         else:
-            pattern = f'./probes/epoch_{epoch}_seed_*_task_centric.csv'
+            pattern = f'{probe_dir}/epoch_{epoch}_seed_*_task_centric.csv'
         
         files = sorted(glob.glob(pattern))
         if len(files) == 0:
@@ -1356,7 +1358,10 @@ class SalmonLitModule(LightningModule):
         # 4) Save summary CSV
         if rows:
             summary_df = pd.DataFrame(rows)
-            summary_path = f'./probes/epoch_{epoch}_summary.csv'
+            loss_coef_str = f"loss_coef_{self.loss_coefficient:.2f}".replace(".", "_").replace("-", "neg")
+            probe_dir = f'./probes/{loss_coef_str}'
+            os.makedirs(probe_dir, exist_ok=True)
+            summary_path = f'{probe_dir}/epoch_{epoch}_summary.csv'
             summary_df.to_csv(summary_path, index=False)
             print(f"  Saved summary to {summary_path}")
             
@@ -2100,10 +2105,13 @@ class SalmonLitModule(LightningModule):
 
     def _create_epoch_csv_files(self, epoch: int, seed: int, has_fp32: bool):
         """Create CSV files for a specific epoch and seed."""
-        os.makedirs('./probes', exist_ok=True)
+        # Include loss_coefficient in the directory name
+        loss_coef_str = f"loss_coef_{self.loss_coefficient:.2f}".replace(".", "_").replace("-", "neg")
+        probe_dir = f'./probes/{loss_coef_str}'
+        os.makedirs(probe_dir, exist_ok=True)
         
         # Always create task-centric CSV
-        csv_path_task = f'./probes/epoch_{epoch}_seed_{seed}_task_centric.csv'
+        csv_path_task = f'{probe_dir}/epoch_{epoch}_seed_{seed}_task_centric.csv'
         csv_file_task = open(csv_path_task, 'w', newline='')
         fieldnames_task = [
             'epoch', 'batch', 'seed', 'branch', 'locus',
@@ -2126,7 +2134,7 @@ class SalmonLitModule(LightningModule):
         
         # Also create FP32 alignment CSV if FP32 is available
         if has_fp32:
-            csv_path_fp32 = f'./probes/epoch_{epoch}_seed_{seed}_fp32_alignment.csv'
+            csv_path_fp32 = f'{probe_dir}/epoch_{epoch}_seed_{seed}_fp32_alignment.csv'
             csv_file_fp32 = open(csv_path_fp32, 'w', newline='')
             fieldnames_fp32 = [
                 'epoch', 'batch', 'seed', 'branch', 'locus',
@@ -2162,7 +2170,9 @@ class SalmonLitModule(LightningModule):
         """Build longitudinal trend plots across epochs."""
         import matplotlib.pyplot as plt
         
-        paths = sorted(glob.glob('./probes/epoch_*_summary.csv'))
+        loss_coef_str = f"loss_coef_{self.loss_coefficient:.2f}".replace(".", "_").replace("-", "neg")
+        probe_dir = f'./probes/{loss_coef_str}'
+        paths = sorted(glob.glob(f'{probe_dir}/epoch_*_summary.csv'))
         if not paths:
             print("No summary files found for longitudinal plots")
             return
@@ -2198,7 +2208,7 @@ class SalmonLitModule(LightningModule):
             plt.ylabel('cos(A, FP32)')
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
-            plt.savefig(f'./probes/plots/trend_cosA_{L}.png', dpi=150)
+            plt.savefig(f'{probe_dir}/plots/trend_cosA_{L}.png', dpi=150)
             plt.close()
         
         # Trend: cos(D,task) by branch×locus
@@ -2216,7 +2226,7 @@ class SalmonLitModule(LightningModule):
                 plt.ylabel('cos(D, task)')
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
-                plt.savefig(f'./probes/plots/trend_cosD_task_{B}_{L}.png', dpi=150)
+                plt.savefig(f'{probe_dir}/plots/trend_cosD_task_{B}_{L}.png', dpi=150)
                 plt.close()
         
         # Trend: Best delta by branch×locus
@@ -2265,7 +2275,7 @@ class SalmonLitModule(LightningModule):
                     
                     plt.title(f'Trend: Δ@best @ {B}/{L}')
                     plt.tight_layout()
-                    plt.savefig(f'./probes/plots/trend_delta_best_{B}_{L}.png', dpi=150)
+                    plt.savefig(f'{probe_dir}/plots/trend_delta_best_{B}_{L}.png', dpi=150)
                     plt.close()
         
         print("Created longitudinal trend plots")
