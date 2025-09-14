@@ -1,0 +1,31 @@
+_target_: src.models.exp2_1_module.SalmonLitModule
+
+integrated_resnet:
+  _target_: src.models.components.exp2_model.IntegratedResNet
+  architecture: "resnet18"
+  num_classes: 10
+  rpu_config:
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
+    device:
+      _target_: aihwkit.simulator.configs.devices.IdealDevice
+
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+  eps: 1.0e-08
+  amsgrad: false
+
+# Additional hyperparameters
+model: "resnet18"
+dataset: "cifar10"
+epoch: 300
+dataset_path: "data"
+autoaugment: False
+batchsize: 128
+N_CLASSES: 10
+opt_config : "AnalogAdam"
+sch_config : "off-schedule"
+
+

@@ -1,0 +1,40 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example2
+
+defaults:
+  - override /data: salmon
+  - override /model: exp5_model
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "analog_layers_counts-1-channel-64-lr-0001","3-22"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 10
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+  optimizer:
+    lr: 0.01
+    weight_decay: 0.0
+  compile: false
+
+data:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "Exp5-Analog-Mixed-Layer"
+  aim:
+    experiment: "5"
+
+# salmon model 기본 실험 Resnet10 기본모델로 test

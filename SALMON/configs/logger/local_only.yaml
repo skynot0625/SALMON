@@ -1,0 +1,24 @@
+# Local-only logging configuration (CSV + TensorBoard)
+# No external services, no uploads
+
+defaults:
+  - csv
+  - tensorboard
+
+csv:
+  _target_: lightning.pytorch.loggers.CSVLogger
+  save_dir: "${paths.output_dir}"
+  name: "csv"
+  version: null
+  prefix: ""
+  flush_logs_every_n_steps: 100
+
+tensorboard:
+  _target_: lightning.pytorch.loggers.TensorBoardLogger
+  save_dir: "${paths.output_dir}"
+  name: "tensorboard"
+  version: null
+  log_graph: False  # Don't log model graph to save space
+  default_hp_metric: True
+  prefix: ""
+  sub_dir: null

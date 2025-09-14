@@ -1,0 +1,38 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example2
+
+defaults:
+  - override /data: salmon
+  - override /model: exp4_2_model
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "Resnet18","lr001","AnalogSGD","off-schedule","IdealDevice","SingleRPUConfig","SD","7bit","sweep"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 10
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+
+  compile: false
+
+data:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "Exp4_1-Analog-Resnet-bit_test"
+  aim:
+    experiment: "4"
+
+# Analog Resnet model test

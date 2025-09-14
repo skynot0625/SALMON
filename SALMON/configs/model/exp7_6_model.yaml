@@ -1,0 +1,52 @@
+_target_: src.models.exp7_6_module.SalmonLitModule
+
+# Define the IntegratedResNet configuration with IdealizedPreset for Device-2 config
+integrated_resnet:
+  _target_: src.models.components.exp7_1_model.IntegratedResNet
+  architecture: "resnet18"
+  num_classes: 10
+  rpu_config:
+    _target_: aihwkit.simulator.presets.IdealizedPreset
+
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  weight_decay: 0.0
+  momentum: 0.9
+  dampening: 0
+  nesterov: False
+
+# Cosine annealing scheduler
+scheduler:
+  T_max: 300  # Maximum iterations
+  eta_min: 0.0001  # Minimum learning rate
+
+# Additional hyperparameters
+compile: false
+model: "resnet18"
+dataset: "cifar10"
+epoch: 300
+loss_coefficient: 0.0
+feature_loss_coefficient: 0.0
+dataset_path: "data"
+autoaugment: False
+temperature: 3
+batchsize: 128
+init_lr: 0.1
+N_CLASSES: 10
+block: BasicBlock
+alpha: 0.3
+p_max: 10000
+opt_config: "AnalogSGD"
+sch_config: "off-schedule"
+sd_config: "true"
+FC_Digit: "true"
+
+# Probe configuration for gradient alignment analysis
+probe:
+  enabled: true
+  epochs: [1,10, 20, 30,40,50,75,100,150,200,250,300]
+  batches_per_epoch: 8         # increased to 8 mini-batches for better statistics
+  batch_size: 32               # reduced batch size to avoid memory issues  
+  alpha_eval: [0.0, 0.25, 0.5, 1.0, 2.0]  # Extended α sweep for better analysis
+  seed: 1234

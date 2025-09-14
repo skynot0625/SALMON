@@ -1,0 +1,78 @@
+_target_: src.models.exp7_4_module.SalmonLitModule
+
+# Define the IntegratedResNet configuration
+integrated_resnet:
+  _target_: src.models.components.exp7_model.IntegratedResNet
+  architecture: "resnet18"
+  num_classes: 100
+  rpu_config:
+    _target_: aihwkit.simulator.configs.SingleRPUConfig
+    device:
+      _target_: aihwkit.simulator.configs.devices.LinearStepDevice
+      dw_min: 0.000244140625
+      dw_min_dtod: 0.0  # Device-to-device variation for minimum weight change disabled
+      dw_min_std: 0.0   # Standard deviation for cycle-to-cycle noise for minimum weight change disabled
+      up_down: 0.0
+      up_down_dtod: 0.0  # Device-to-device variation for up_down parameter disabled
+      w_max: 1.0
+      w_min: -1.0
+      w_max_dtod: 0.0  # Device-to-device variation for maximum weight disabled
+      w_min_dtod: 0.0  # Device-to-device variation for minimum weight disabled
+      gamma_up: 0.1 # Gamma value for update in up direction disabled
+      gamma_down: 0.1 # Gamma value for update in down direction disabled
+      gamma_up_dtod: 0.0  # Device-to-device variation for gamma_up disabled
+      gamma_down_dtod: 0.0  # Device-to-device variation for gamma_down disabled
+      mult_noise: False  # Multiplier noise remains disabled
+      write_noise_std: 0.0  # Standard deviation for write noise disabled
+      lifetime: 0.0  # Lifetime of the device before leakage affects it disabled
+      lifetime_dtod: 0.0  # Device-to-device variation for lifetime disabled
+      reset_std: 0.0
+      mean_bound_reference : True
+
+# 4비트: 0.125
+# 5비트: 0.0625
+# 6비트: 0.03125
+# 7비트: 0.015625
+# 8비트: 0.0078125
+# 9비트: 0.00390625
+# 10비트: 0.001953125
+# 11비트: 0.0009765625
+# 12비트: 0.00048828125
+# 13비트: 0.000244140625
+# 14비트: 0.0001220703125
+
+    
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  weight_decay: 0.0
+  # SGD를 사용하므로, Adam에 특화된 betas, eps, amsgrad 매개변수는 제거
+  momentum: 0.9  # SGD에 자주 사용되는 momentum 매개변수 추가
+  # 필요한 경우 dampening과 nesterov 매개변수를 추가할 수 있습니다. 예시에서는 생략
+  # dampening: 0  # 선택적
+  # nesterov: False  # 선택적
+
+# step lr일 경우
+# scheduler:
+#   step_size: 100
+#   gamma: 0.1
+
+# cosine anealing일 경우
+scheduler:
+  T_max: 300  # 최대 반복 횟수
+  eta_min: 0.0001  # 최소 학습률
+
+compile: false
+
+# Additional hyperparameters
+model: "resnet18"
+dataset: "cifar100"
+epoch: 300
+dataset_path: "data"
+autoaugment: False
+batchsize: 128
+N_CLASSES: 100
+opt_config : "AnalogSGD"
+sch_config : "Lr-step"
+sd_config : "false"
+FC_Digit : "true"

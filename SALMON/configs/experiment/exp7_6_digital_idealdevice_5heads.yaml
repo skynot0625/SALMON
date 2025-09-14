@@ -1,0 +1,33 @@
+# @package _global_
+
+defaults:
+  - override /data: salmon
+  - override /model: exp7_6_digital_model_idealdevice_5heads
+  - override /callbacks: default
+  - override /trainer: default
+  - override /logger: wandb_metrics_only  # Only metrics, no model uploads
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "Resnet18", "IdealDevice", "5heads", "D1D2D3D5D6", "digital_module", "lr01", "loss0"]
+
+seed: 1234
+
+trainer:
+  min_epochs: 100
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+  compile: false
+
+data:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "digital-idealdevice-5heads"
+  aim:
+    experiment: "7_6_digital_idealdevice_5heads"

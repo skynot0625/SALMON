@@ -1,0 +1,37 @@
+_target_: src.models.SalmonLitModule.SalmonLitModule
+
+integrated_resnet:
+  _target_: src.models.components.salmon.IntegratedResNet
+  architecture: "resnet10"
+  num_classes: 10
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.1
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.StepLR
+  _partial_: true
+  step_size: 30
+  gamma: 0.1
+
+compile: false
+
+# args 하이퍼파라미터 추가
+model: "resnet10"
+dataset: "cifar10"
+epoch: 100
+loss_coefficient: 0.3
+feature_loss_coefficient: 0.3
+dataset_path: "data"
+autoaugment: False
+temperature: 3.0
+batchsize: 128
+init_lr: 0.1
+N_CLASSES: 10
+block: BasicBlock
+alpha: 0.3
+p_max: 1000
+

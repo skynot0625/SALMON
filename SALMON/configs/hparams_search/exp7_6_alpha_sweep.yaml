@@ -1,0 +1,45 @@
+# @package _global_
+
+# Hyperparameter sweep for loss_coefficient in exp7_6_digital
+# alpha = (1 - loss_coefficient) is the actual loss multiplier
+# Testing values that give alpha: 1.0, 0.99, 0.9, 0.5, 0.0, -1.0, -9.0
+
+defaults:
+  - override /hydra/sweeper: optuna
+
+# Choose metric to optimize
+optimized_metric: "val/acc_best"
+
+# Configure Hydra's sweeper
+hydra:
+  mode: MULTIRUN
+  sweep:
+    dir: logs/sweeps/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: loss_coef_${model.loss_coefficient}
+  sweeper:
+    _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
+    
+    # Storage for distributed optimization (optional, for resuming)
+    storage: null
+    study_name: exp7_6_alpha_sweep
+    n_jobs: 1  # Run sequentially, set higher for parallel runs
+    
+    # Optimization settings
+    direction: maximize
+    n_trials: 7  # Number of different values to test
+    
+    # Define search space for loss_coefficient
+    # alpha = (1 - loss_coefficient)
+    # loss_coefficient: 0.0 -> alpha: 1.0
+    # loss_coefficient: 0.01 -> alpha: 0.99
+    # loss_coefficient: 0.1 -> alpha: 0.9
+    # loss_coefficient: 0.5 -> alpha: 0.5
+    # loss_coefficient: 1.0 -> alpha: 0.0
+    # loss_coefficient: 2.0 -> alpha: -1.0
+    # loss_coefficient: 10.0 -> alpha: -9.0
+    params:
+      model.loss_coefficient: choice(0.0, 0.01, 0.1, 0.5, 1.0, 2.0, 10.0)
+    
+    # Use grid search to test all values
+    sampler:
+      _target_: optuna.samplers.GridSampler

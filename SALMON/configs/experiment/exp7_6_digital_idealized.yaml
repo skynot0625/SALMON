@@ -1,0 +1,40 @@
+# @package _global_
+
+# Gradient Alignment Probes for SALMON with Digital Module (Idealized Device / CIFAR-10 / ResNet-18)
+# Goal: Show that SALMON's digital attention produces directional correction 
+# of the backbone gradient toward the FP32 reference direction
+# Uses exp7_6_module_digital.py for gradient probing with CORRECTED alpha values
+
+defaults:
+  - override /data: salmon
+  - override /model: exp7_6_digital_model_idealized
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "Resnet18", "gradient_alignment", "IdealizedPreset", "probe_analysis", "digital_module", "corrected_alpha"]
+
+seed: 1234
+
+trainer:
+  min_epochs: 100
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+  compile: false
+
+data:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "gradient-alignment-probes-digital-idealized"
+  aim:
+    experiment: "7_6_digital_idealized"
+    
+# Gradient alignment probe experiment for Idealized configuration with digital module
+# CORRECTED: Fixed alpha formatting and device type detection

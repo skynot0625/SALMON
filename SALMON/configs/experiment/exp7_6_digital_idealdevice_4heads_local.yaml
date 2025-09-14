@@ -1,0 +1,26 @@
+# @package _global_
+
+defaults:
+  - override /data: salmon
+  - override /model: exp7_6_digital_model_idealdevice_4heads
+  - override /callbacks: default
+  - override /trainer: default
+  - override /logger: local_only  # Use local-only logging (no WandB)
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "Resnet18", "IdealDevice", "4heads", "D1D2D3D6", "digital_module", "lr01", "loss0"]
+
+seed: 1234
+
+trainer:
+  min_epochs: 100
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+  compile: false
+
+data:
+  batch_size: 128

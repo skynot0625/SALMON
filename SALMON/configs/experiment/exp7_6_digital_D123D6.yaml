@@ -1,0 +1,32 @@
+# @package _global_
+
+# Experiment: Default heads (D1,D2,D3) + D6
+# Tests adding the deepest attention head to the original configuration
+
+defaults:
+  - override /data: salmon
+  - override /model: exp7_6_digital_model_D123D6
+  - override /callbacks: default
+  - override /trainer: default
+
+tags: ["cifar10", "Resnet18", "4heads", "D1D2D3D6", "digital", "EcRamPresetDevice", "self-distillation","alpha:0.5"]
+
+seed: 12345
+
+trainer:
+  min_epochs: 10
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+  compile: false
+
+data:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "exp7_6_digital_selective"
+  aim:
+    experiment: "7_6_digital_D123D6"

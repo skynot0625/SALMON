@@ -1,0 +1,43 @@
+_target_: src.models.exp5_module.SalmonLitModule
+
+# 이 실험은 mixed-resnet backbone test용
+# Define the IntegratedResNet configuration
+integrated_resnet:
+  _target_: src.models.components.exp5_model.IntegratedResNet
+  architecture: "resnet18"
+  num_classes: 10
+  rpu_config:
+    _target_: aihwkit.simulator.presets.IdealizedPreset
+  analog_layers_count: 1 # 예시 값, 실제 요구사항에 맞게 조정하세요
+    
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-08
+  weight_decay: 0.0
+  amsgrad: false
+
+# Scheduler settings
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 300 # 여기서 T_max는 한 주기의 길이(epoch 수)를 의미합니다.
+  eta_min: 0.0001 # 이 값은 주기의 최저점에서의 학습률을 의미합니다. 필요에 따라 조정하세요.
+
+# Additional hyperparameters
+compile: false
+model: "resnet18"
+dataset: "cifar10"
+epoch: 300
+loss_coefficient: 0.3
+feature_loss_coefficient: 0.3
+dataset_path: "data"
+autoaugment: False
+temperature: 3.0
+batchsize: 128
+init_lr: 0.02518361414752676
+N_CLASSES: 10
+block: BasicBlock
+alpha: 0.3
+p_max: 1000

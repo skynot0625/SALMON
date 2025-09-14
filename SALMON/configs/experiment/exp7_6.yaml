@@ -1,0 +1,38 @@
+# @package _global_
+
+# Gradient Alignment Probes for SALMON (Device-2 / CIFAR-10 / ResNet-18)
+# Goal: Show that SALMON's digital attention produces directional correction 
+# of the backbone gradient toward the FP32 reference direction
+
+defaults:
+  - override /data: salmon
+  - override /model: exp7_6_model
+  - override /callbacks: default
+  - override /trainer: default
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["cifar10", "Resnet18", "gradient_alignment", "IdealizedPreset", "Device2", "probe_analysis"]
+
+seed: 1234
+
+trainer:
+  min_epochs: 100
+  max_epochs: 300
+  gradient_clip_val: 0.5
+
+model:
+  compile: false
+
+data:
+  batch_size: 128
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "gradient-alignment-probes"
+  aim:
+    experiment: "7_6"
+    
+# Gradient alignment probe experiment for Device-2 configuration

@@ -1,0 +1,25 @@
+# @package _global_
+
+# Optuna hyperparameter optimization for ResNet models on CIFAR10
+# Run command: python src/train.py -m hparams_search=mnist_optuna experiment=exp1.yaml trainer=gpu
+
+defaults:
+  - override /hydra/sweeper: optuna
+
+optimized_metric: "val/acc_0"
+
+hydra:
+  mode: "MULTIRUN"
+
+  sweeper:
+    _target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
+    storage: null
+    study_name: null
+    n_jobs: 1
+    direction: maximize
+    n_trials: ?  # Grid Search를 사용할 때, n_trials는 필요하지 않습니다.
+    sampler:
+      _target_: optuna.samplers.GridSampler
+      search_space:
+        model.loss_coefficient: [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+

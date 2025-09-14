@@ -1,0 +1,24 @@
+_target_: src.models.exp13_module.SalmonLitModule
+# 이 실험은 mixed-resnet backbone test용
+# Define the IntegratedResNet configuration
+AnalogVGG8Net:
+  _target_: src.models.components.exp13_VGG8_model.AnalogVGG8Net
+  num_classes: 10
+  rpu_config:
+    _target_: aihwkit.simulator.presets.IdealizedPreset
+    
+# Optimizer settings
+optimizer:
+  lr: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-08
+  weight_decay: 0.0
+  amsgrad: false
+
+# Scheduler settings
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 100 # 여기서 T_max는 한 주기의 길이(epoch 수)를 의미합니다.
+  eta_min: 0.00001 # 이 값은 주기의 최저점에서의 학습률을 의미합니다. 필요에 따라 조정하세요.
+

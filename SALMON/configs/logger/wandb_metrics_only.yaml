@@ -1,0 +1,26 @@
+# WandB logger configuration - METRICS ONLY, NO MODEL UPLOADS
+# https://wandb.ai
+
+wandb:
+  _target_: pytorch_lightning.loggers.wandb.WandbLogger
+  save_dir: "${paths.output_dir}"
+  offline: False  # Set to True if you want to run offline
+  id: null # pass correct id to resume experiment!
+  anonymous: null # enable anonymous logging
+  project: "salmon"
+  
+  # CRITICAL: Disable all artifact/model uploads
+  log_model: False  # DO NOT upload model checkpoints
+  
+  prefix: "" # a string to put at the beginning of metric keys
+  entity: "spk" # set to name of your wandb team
+  group: ""
+  tags: []
+  job_type: ""
+  
+  # Additional settings to prevent unwanted uploads
+  checkpoint_name: null  # Don't log checkpoints
+  version: null
+  
+  # Note: Checkpoints will still be saved locally by the ModelCheckpoint callback
+  # but they won't be uploaded to WandB
